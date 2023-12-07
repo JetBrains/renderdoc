@@ -571,3 +571,7 @@ if(INTERNAL_SELF_CAPTURE)
     message(STATUS "INTERNAL: Configuring for self-capture")
 endif()
 
+option(JETBRAINS "Enable JetBrains projects build" OFF)
+if(JETBRAINS)
+    add_subdirectory("jetbrains")
+endif()

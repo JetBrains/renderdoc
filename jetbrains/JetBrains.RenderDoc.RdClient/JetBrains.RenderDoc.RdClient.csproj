@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>11.0</LangVersion>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageId>JetBrains.RenderDoc.RdClient</PackageId>
+        <Version>1.0.0</Version>
+        <Authors>JetBrains Team</Authors>
+        <Company>JetBrains</Company>
+    </PropertyGroup>
+    
+    <ItemGroup>
+        <PackageReference Include="JetBrains.Annotations" Version="2023.3.0" />
+        <PackageReference Include="JetBrains.RdFramework" Version="$(RdVersion)" />
+    </ItemGroup>
+    
+    <Target Name="BuildRenderDocHost" BeforeTargets="CoreCompile;CopyFilesToOutputDirectory" Outputs="runtimes/osx-arm64/RenderDocHost;runtimes/osx-amd64/RenderDocHost;runtimes/win-amd64/RenderDocHost.exe;runtimes/win-arm64/RenderDocHost.exe;runtimes/linux-amd64/RenderDocHost;runtimes/linux-arm64/RenderDocHost">
+        <Exec WorkingDirectory="$(MSBuildThisFileDirectory)/.." Command="./gradlew buildRenderDocHost" />
+    </Target>
+
+    <ItemGroup>
+        <Content Include="runtimes/**" CopyToOutputDirectory="PreserveNewest" Pack="true" PackagePath="DotnetFiles" />
+    </ItemGroup>
+</Project>
