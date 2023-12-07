@@ -1,0 +1,80 @@
+name: JetBrains CI
+on:
+  push:
+    branches:
+      - master
+      - v1.x
+      - ci-test
+  pull_request:
+    branches:
+      - master
+      - v1.x
+defaults:
+  run:
+    shell: bash
+    working-directory: jetbrains
+jobs:
+  build_artifacts:
+    name: Build artifacts for ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: VS2022 x64 Development
+            os: windows-2022
+            os-family: windows
+            compiler: VS2022
+            toolset: v143
+            platform: x64
+            configuration: Development
+            cc: cl
+            cxx: cl
+          - name: MacOS
+            os: macos-latest
+            os-family: macos
+            cc: clang
+            cxx: clang++
+          - name: Linux
+            os: ubuntu-20.04
+            os-family: ubuntu
+            cc: clang
+            cxx: clang++
+    env:
+      CC: ${{ matrix.config.cc }}
+      CXX: ${{ matrix.config.cxx }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 5
+      - uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: seanmiddleditch/gha-setup-ninja@master
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+      - if: matrix.config.os-family == 'ubuntu'
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libx11-dev mesa-common-dev libgl1-mesa-dev libxcb-keysyms1-dev libdrm-dev libegl-dev libegl-mesa0 libegl1 libgbm1 libgl-dev libgles-dev libgles1 libgles2 libglvnd-core-dev libglvnd-dev libglx-dev libopengl-dev libopengl0 libpciaccess-dev libpciaccess0 libpthread-stubs0-dev libwayland-client0 libwayland-server0 libxau-dev libxcb-keysyms1 libxcb1-dev libxdmcp-dev x11proto-dev xorg-sgml-doctools xtrans-dev xcb libxcb-xkb-dev x11-xkb-utils libx11-xcb-dev libxkbcommon-x11-dev
+          version: 1.0
+      - if: matrix.config.os-family == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Run the Gradle jar tasks
+        run: ./gradlew jar runtimeJar
+      - name: Run the Gradle check task
+        id: check
+        env:
+          LOCAL_REPLAY_NOT_SUPPORTED: 1
+        run: ./gradlew check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rd Client (${{matrix.config.os}})
+          path: jetbrains/build/libs/*.jar
+      - name: Check failure
+        if: ${{ failure() && steps.check.conclusion == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Failed tests report (${{matrix.config.os}})
+          path: jetbrains/build/reports/tests/**/*
