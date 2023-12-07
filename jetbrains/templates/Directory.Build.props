@@ -1,0 +1,5 @@
+<Project>
+    <PropertyGroup>
+        <RdVersion>@RD_VERSION@</RdVersion>
+    </PropertyGroup>
+</Project>

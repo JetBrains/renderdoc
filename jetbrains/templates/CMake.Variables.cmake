@@ -1,0 +1,1 @@
+set(RD_VERSION "@RD_VERSION@")
