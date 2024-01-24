@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "api/replay/shader_types.h"
 #include "common/common.h"
 #include "d3d12_common.h"
 #include "d3d12_state.h"

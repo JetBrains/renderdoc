@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "api/replay/rdcstr.h"
 #include "common/common.h"
 #include "driver/dx/official/d3d11_4.h"
 

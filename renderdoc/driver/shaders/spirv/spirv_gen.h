@@ -59,6 +59,7 @@
 // We need to disable clang-format since this file is programmatically generated
 // clang-format off
 
+#include "os/os_specific.h"
 #include <stdint.h>
 #include "api/replay/apidefs.h"
 #include "api/replay/stringise.h"

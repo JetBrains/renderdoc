@@ -23,6 +23,7 @@
  ******************************************************************************/
 
 #pragma once
+#include "api/replay/replay_enums.h"
 
 namespace DXIL
 {

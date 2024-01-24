@@ -60,6 +60,13 @@ if(APPLE)
         cgl_platform_helpers.mm
         cgl_platform.cpp
         cgl_hooks.cpp)
+elseif(WIN32)
+    list(APPEND sources
+        egl_platform.cpp
+        egl_hooks.cpp
+        wgl_hooks.cpp
+        wgl_platform.cpp
+    )
 else()
     if(ENABLE_GL)
         list(APPEND sources

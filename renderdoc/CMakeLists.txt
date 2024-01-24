@@ -100,6 +100,8 @@ elseif(UNIX)
         list(APPEND RDOC_LIBRARIES
             PRIVATE -l${PKG_WAYLAND_LIBRARIES})
     endif()
+elseif(WIN32)
+    set(RDOC_DEFINITIONS ${RDOC_DEFINITIONS} PRIVATE -DNDEBUG -D_WINDOWS -D_USRDLL)
 endif()
 
 if(NOT "x${CMAKE_THREAD_LIBS_INIT}" STREQUAL "x")
@@ -372,6 +374,19 @@ elseif(UNIX)
         os/posix/posix_stringio.cpp
         os/posix/posix_threading.cpp
         os/posix/posix_specific.h)
+elseif(WIN32)
+    list(APPEND sources
+        data/embedded_files.h
+        data/renderdoc.rc
+        os/win32/sys_win32_hooks.cpp
+        os/win32/win32_callstack.cpp
+        os/win32/win32_hook.cpp
+        os/win32/win32_libentry.cpp
+        os/win32/win32_network.cpp
+        os/win32/win32_process.cpp
+        os/win32/win32_shellext.cpp
+        os/win32/win32_stringio.cpp
+        os/win32/win32_threading.cpp)
 endif()
 
 if(NOT ANDROID)
@@ -384,14 +399,20 @@ if(NOT ANDROID)
         3rdparty/compressonator/BC6_Encode_kernel.cpp
         3rdparty/compressonator/BC7_Encode_Kernel.cpp)
 
-    set_source_files_properties(3rdparty/compressonator/BC1_Encode_kernel.cpp
-        3rdparty/compressonator/BC2_Encode_kernel.cpp
-        3rdparty/compressonator/BC3_Encode_kernel.cpp
-        3rdparty/compressonator/BC4_Encode_kernel.cpp
-        3rdparty/compressonator/BC5_Encode_kernel.cpp
-        3rdparty/compressonator/BC6_Encode_kernel.cpp
-        3rdparty/compressonator/BC7_Encode_Kernel.cpp
-        PROPERTIES COMPILE_FLAGS "-D_LINUX -Wno-newline-eof -Wno-missing-braces -Wno-char-subscripts -Wno-sign-compare -Wno-unused-value -Wno-strict-aliasing -Wno-shift-negative-value -Wno-implicit-fallthrough")
+    if(NOT WIN32)
+        set_source_files_properties(3rdparty/compressonator/BC1_Encode_kernel.cpp
+            3rdparty/compressonator/BC2_Encode_kernel.cpp
+            3rdparty/compressonator/BC3_Encode_kernel.cpp
+            3rdparty/compressonator/BC4_Encode_kernel.cpp
+            3rdparty/compressonator/BC5_Encode_kernel.cpp
+            3rdparty/compressonator/BC6_Encode_kernel.cpp
+            3rdparty/compressonator/BC7_Encode_Kernel.cpp
+            PROPERTIES COMPILE_FLAGS "-D_LINUX -Wno-newline-eof -Wno-missing-braces -Wno-char-subscripts -Wno-sign-compare -Wno-unused-value -Wno-strict-aliasing -Wno-shift-negative-value -Wno-implicit-fallthrough")
+    endif()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    set_property(SOURCE core/core.cpp PROPERTY COMPILE_FLAGS /bigobj)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX)
@@ -561,6 +582,15 @@ if(ENABLE_GL OR ENABLE_GLES OR ENABLE_VULKAN)
     list(APPEND renderdoc_objects $<TARGET_OBJECTS:rdoc_spirv>)
 endif()
 
+if (WIN32)
+    add_subdirectory(driver/d3d11)
+    add_subdirectory(driver/d3d12)
+    add_subdirectory(driver/dxgi)
+    add_subdirectory(driver/shaders/dxil)
+    add_subdirectory(driver/shaders/dxbc)
+    list(APPEND renderdoc_objects $<TARGET_OBJECTS:rdoc_d3d11> $<TARGET_OBJECTS:rdoc_d3d12> $<TARGET_OBJECTS:rdoc_dxgi>  $<TARGET_OBJECTS:rdoc_dxil>  $<TARGET_OBJECTS:rdoc_dxbc>)
+endif()
+
 option(USE_INTERCEPTOR_LIB OFF)
 
 # on Android, pull in interceptor-lib only if we have LLVM available
@@ -624,21 +654,27 @@ target_compile_definitions(rdoc_version PRIVATE -DGIT_COMMIT_HASH="${GIT_COMMIT_
 list(APPEND renderdoc_objects
     $<TARGET_OBJECTS:rdoc_version>)
 
-# posix_libentry must be the last so that library_loaded is called after
-# static objects are constructed. We guarantee this happens after even
-# any other static libraries that we link by making it its own static
-# library and appending it to the end of the link list.
-add_library(renderdoc_libentry STATIC os/posix/posix_libentry.cpp)
-target_compile_definitions(renderdoc_libentry ${RDOC_DEFINITIONS})
-target_include_directories(renderdoc_libentry ${RDOC_INCLUDES})
+if(NOT WIN32)
+    # posix_libentry must be the last so that library_loaded is called after
+    # static objects are constructed. We guarantee this happens after even
+    # any other static libraries that we link by making it its own static
+    # library and appending it to the end of the link list.
+    add_library(renderdoc_libentry STATIC os/posix/posix_libentry.cpp)
+    target_compile_definitions(renderdoc_libentry ${RDOC_DEFINITIONS})
+    target_include_directories(renderdoc_libentry ${RDOC_INCLUDES})
+endif ()
 link_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # On apple we need to pass the force_load parameter here - if we set it with LINK_FLAGS below
 # it gets applied too early (even if the -lrenderdoc_libentry is later)
 if(APPLE)
     list(APPEND RDOC_LIBRARIES PRIVATE "-Wl,-force_load,$<TARGET_FILE:renderdoc_libentry>")
-else()
+elseif(NOT WIN32)
     list(APPEND RDOC_LIBRARIES PRIVATE -lrenderdoc_libentry)
+endif()
+
+if (WIN32)
+    list(APPEND RDOC_LIBRARIES PRIVATE ws2_32 kernel32 user32 shlwapi setupapi)
 endif()
 
 add_library(renderdoc SHARED ${renderdoc_objects})
@@ -646,7 +682,9 @@ target_compile_definitions(renderdoc ${RDOC_DEFINITIONS})
 target_include_directories(renderdoc ${RDOC_INCLUDES})
 target_link_libraries(renderdoc ${RDOC_LIBRARIES})
 
-add_dependencies(renderdoc renderdoc_libentry)
+if (NOT WIN32)
+    add_dependencies(renderdoc renderdoc_libentry)
+endif()
 
 if(UNIX AND NOT ANDROID AND NOT APPLE)
     set(RDOC_LINK_FLAGS "-Wl,--undefined,force_include_libentry -Wl,--version-script,${CMAKE_CURRENT_SOURCE_DIR}/${RDOC_BASE_NAME}.version")

@@ -74,6 +74,19 @@ elseif(UNIX)
     # Make sure that for the target executable we don't throw away
     # any shared libraries.
     set(LINKER_FLAGS "-Wl,--no-as-needed")
+elseif(WIN32)
+    list(APPEND sources
+         renderdoccmd_win32.cpp
+         renderdoccmd.rc
+         ../renderdoc/3rdparty/miniz/miniz.c
+         ../renderdoc/3rdparty/miniz/miniz.h
+         resource.h
+         targetver.h)
+
+    list(APPEND libraries PRIVATE psapi.lib ws2_32.lib Wininet.lib)
+    list(APPEND includes PRIVATE ${CMAKE_SOURCE_DIR}/renderdoc/api/replay ${CMAKE_SOURCE_DIR}/renderdocshim ${CMAKE_SOURCE_DIR}/renderdoc/3rdparty)
+
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS -DNDEBUG -D_CONSOLE)
 endif()
 
 if(ANDROID)
