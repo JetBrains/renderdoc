@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "api/replay/stringise.h"
 #include "common/common.h"
 
 namespace LLVMBC

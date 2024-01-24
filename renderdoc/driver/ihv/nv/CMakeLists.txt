@@ -19,6 +19,22 @@ if(NOT ANDROID AND NOT APPLE)
     endif()
 endif()
 
+if (WIN32)
+    list(APPEND sources
+            nvapi_hooks.cpp
+            nvapi_wrapper.cpp
+            nv_counters.cpp
+            nv_d3d11_counters.cpp
+            nv_d3d12_counters.cpp
+            nvapi_wrapper.h
+            nv_counters.h
+            nv_d3d11_counters.h
+            nv_d3d12_counters.h
+            official/nvapi/nvapi.h
+            official/nvapi/nvapi_interface.h
+            official/PerfKit/include/NvPmApi.h)
+endif()
+
 set(include_dirs
     ${RDOC_INCLUDES}
     "${CMAKE_CURRENT_SOURCE_DIR}/official/PerfSDK/redist/include"

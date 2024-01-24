@@ -25,6 +25,8 @@
 #pragma once
 
 #include <map>
+
+#include "api/replay/shader_types.h"
 #include "driver/dx/official/d3d11_4.h"
 #include "d3d12_common.h"
 

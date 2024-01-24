@@ -25,6 +25,9 @@
 #pragma once
 
 #include <map>
+
+#include "api/replay/rdcarray.h"
+#include "api/replay/rdcstr.h"
 #include "driver/dx/official/d3d11_4.h"
 
 class WrappedID3D11Device;

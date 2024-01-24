@@ -50,8 +50,10 @@ else()
     )
 endif()
 
-set_property(SOURCE ${sources}
-    PROPERTY COMPILE_FLAGS "-Wno-unknown-warning-option -Wno-range-loop-construct")
+if(NOT CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    set_property(SOURCE ${sources}
+        PROPERTY COMPILE_FLAGS "-Wno-unknown-warning-option -Wno-range-loop-construct")
+endif ()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set_property(SOURCE ${sources} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-shadow -Wno-shorten-64-to-32")
