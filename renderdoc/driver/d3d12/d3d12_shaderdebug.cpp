@@ -26,6 +26,7 @@
 #include "driver/dxgi/dxgi_common.h"
 #include "driver/shaders/dxbc/dxbc_debug.h"
 #include "maths/formatpacking.h"
+#include "os/os_specific.h"
 #include "strings/string_utils.h"
 #include "d3d12_command_queue.h"
 #include "d3d12_debug.h"

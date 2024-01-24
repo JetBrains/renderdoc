@@ -22,9 +22,13 @@
  * THE SOFTWARE.
  ******************************************************************************/
 
+#ifndef _WINDOWS_
+#include <windows.h>
+#endif
 #include <wincrypt.h>
 #include "core/settings.h"
 #include "hooks/hooks.h"
+#include "os/os_specific.h"
 #include "strings/string_utils.h"
 #include "tinyfiledialogs/tinyfiledialogs.h"
 #include "d3d12_common.h"

@@ -137,6 +137,24 @@ elseif(UNIX)
     configure_file(${json_in} ${json_out})
 
     install (FILES ${json_out} DESTINATION ${VULKAN_LAYER_FOLDER})
+elseif(WIN32)
+    list(APPEND sources vk_win32.cpp)
+
+    set(VULKAN_LAYER_MODULE_PATH "${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}/${LIB_SUBFOLDER_TRAIL_SLASH}lib${RDOC_BASE_NAME}.dll")
+    set(VULKAN_ENABLE_VAR "ENABLE_VULKAN_${RDOC_BASE_NAME_UPPER}_CAPTURE")
+
+    set(json_in ${CMAKE_CURRENT_SOURCE_DIR}/renderdoc.json)
+    set(json_out ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${RDOC_BASE_NAME}_capture${VULKAN_JSON_SUFFIX}.json)
+
+    add_definitions(-DVK_USE_PLATFORM_WIN32_KHR)
+
+    configure_file(${json_in} ${json_out})
+
+    install (FILES ${json_out} DESTINATION ${VULKAN_LAYER_FOLDER})
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    set_property(SOURCE vk_serialise.cpp PROPERTY COMPILE_FLAGS /bigobj)
 endif()
 
 add_library(rdoc_vulkan OBJECT ${sources})

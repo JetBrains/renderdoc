@@ -91,6 +91,9 @@ set(glslang_sources
 if(UNIX)
     list(APPEND glslang_sources
         ${glslang_dir}/glslang/OSDependent/Unix/ossource.cpp)
+elseif(WIN32)
+    list(APPEND glslang_sources
+        ${glslang_dir}/glslang/OSDependent/Windows/ossource.cpp)
 endif()
 
 set(sources
@@ -121,8 +124,10 @@ set(sources
 add_definitions(-DAMD_EXTENSIONS)
 add_definitions(-DNV_EXTENSIONS)
 
-set_property(SOURCE ${glslang_sources}
-    PROPERTY COMPILE_FLAGS "-Wno-ignored-qualifiers -Wno-strict-aliasing -Wno-unreachable-code-break")
+if(NOT CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+    set_property(SOURCE ${glslang_sources}
+        PROPERTY COMPILE_FLAGS "-Wno-ignored-qualifiers -Wno-strict-aliasing -Wno-unreachable-code-break")
+endif ()
 
 # GCC 7.0 and above needs -Wno-implicit-fallthrough
 if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.9)
