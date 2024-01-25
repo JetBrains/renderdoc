@@ -31,10 +31,9 @@
 // We need to disable clang-format since this struct is programmatically generated
 // clang-format off
 
+#define InvokeForEachInGroup(FOR_EACH_IN_GROUP, FUNC) FOR_EACH_IN_GROUP(FUNC)
 
-
-
-#define ForEachSupported(FUNC) \
+#define ForEachSupported0(FUNC) \
   FUNC(glBindTexture, glBindTexture); \
   FUNC(glBlendFunc, glBlendFunc); \
   FUNC(glClear, glClear); \
@@ -429,6 +428,8 @@
   FUNC(glIsTransformFeedback, glIsTransformFeedback); \
   FUNC(glIsVertexArray, glIsVertexArray); \
   FUNC(glIsVertexArray, glIsVertexArrayOES); \
+
+#define ForEachSupported1(FUNC) \
   FUNC(glGenBuffers, glGenBuffers); \
   FUNC(glGenBuffers, glGenBuffersARB); \
   FUNC(glBindBuffer, glBindBuffer); \
@@ -724,6 +725,8 @@
   FUNC(glPointParameterfv, glPointParameterfvEXT); \
   FUNC(glPointParameteri, glPointParameteri); \
   FUNC(glPointParameteriv, glPointParameteriv); \
+
+#define ForEachSupported2(FUNC) \
   FUNC(glDispatchCompute, glDispatchCompute); \
   FUNC(glDispatchComputeIndirect, glDispatchComputeIndirect); \
   FUNC(glMemoryBarrier, glMemoryBarrier); \
@@ -943,6 +946,8 @@
   FUNC(glProgramUniformMatrix4x2dv, glProgramUniformMatrix4x2dvEXT); \
   FUNC(glProgramUniformMatrix4x3dv, glProgramUniformMatrix4x3dv); \
   FUNC(glProgramUniformMatrix4x3dv, glProgramUniformMatrix4x3dvEXT); \
+
+#define ForEachSupported3(FUNC) \
   FUNC(glDrawRangeElements, glDrawRangeElements); \
   FUNC(glDrawRangeElements, glDrawRangeElementsEXT); \
   FUNC(glDrawRangeElementsBaseVertex, glDrawRangeElementsBaseVertex); \
@@ -1295,8 +1300,13 @@
   FUNC(wglDXLockObjectsNV, wglDXLockObjectsNV); \
   FUNC(wglDXUnlockObjectsNV, wglDXUnlockObjectsNV); \
 
+#define ForEachSupportedGroup(GROUP_FUNC, FUNC) \
+  GROUP_FUNC(ForEachSupported0, FUNC) \
+  GROUP_FUNC(ForEachSupported1, FUNC) \
+  GROUP_FUNC(ForEachSupported2, FUNC) \
+  GROUP_FUNC(ForEachSupported3, FUNC)
 
-
+#define ForEachSupported(FUNC) ForEachSupportedGroup(InvokeForEachInGroup, FUNC)
 
 #define DefineSupportedHooks() \
   FuncWrapper2(void, glBindTexture, GLenum, target, GLuint, texture); \
@@ -2562,7 +2572,7 @@
 
 
 
-#define ForEachUnsupported(FUNC) \
+#define ForEachUnsupported0(FUNC) \
   FUNC(glAccum); \
   FUNC(glAccumxOES); \
   FUNC(glActiveProgramEXT); \
@@ -2983,6 +2993,8 @@
   FUNC(glFramebufferTextureFaceARB); \
   FUNC(glFramebufferTextureFaceEXT); \
   FUNC(glFramebufferTextureLayerDownsampleIMG); \
+
+#define ForEachUnsupported1(FUNC) \
   FUNC(glFrameZoomSGIX); \
   FUNC(glFreeObjectBufferATI); \
   FUNC(glFrustumfOES); \
@@ -3584,6 +3596,8 @@
   FUNC(glMultTransposeMatrixfARB); \
   FUNC(glMultTransposeMatrixf); \
   FUNC(glMultTransposeMatrixxOES); \
+
+#define ForEachUnsupported2(FUNC) \
   FUNC(glNamedBufferPageCommitmentARB); \
   FUNC(glNamedBufferPageCommitmentEXT); \
   FUNC(glNamedBufferStorageExternalEXT); \
@@ -4186,6 +4200,8 @@
   FUNC(glUpdateObjectBufferATI); \
   FUNC(glUseProgramObjectARB); \
   FUNC(glUseShaderProgramEXT); \
+
+#define ForEachUnsupported3(FUNC) \
   FUNC(glValidateProgramARB); \
   FUNC(glVariantArrayObjectATI); \
   FUNC(glVariantbvEXT); \
@@ -4468,7 +4484,13 @@
   FUNC(glWindowRectanglesEXT); \
   FUNC(glWriteMaskEXT); \
 
+#define ForEachUnsupportedGroup(GROUP_FUNC, FUNC) \
+  GROUP_FUNC(ForEachUnsupported0, FUNC) \
+  GROUP_FUNC(ForEachUnsupported1, FUNC) \
+  GROUP_FUNC(ForEachUnsupported2, FUNC) \
+  GROUP_FUNC(ForEachUnsupported3, FUNC)
 
+#define ForEachUnsupported(FUNC) ForEachUnsupportedGroup(InvokeForEachInGroup, FUNC)
 
 
 #define DefineUnsupportedHooks() \
