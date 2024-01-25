@@ -215,8 +215,24 @@ void *HookedGetProcAddress(const char *func, void *realFunc)
     return (void *)&CONCAT(function, _renderdoc_hooked);                         \
   }
 
+  // Use lambdas for supported operation groups because o LNK1322	cannot avoid potential ARM hazard
+  // (Cortex-A53 MPCore processor bug #843419)
+#ifdef _M_ARM64
+  void *hooked;
+#define CheckGroup(FOR_EACH_IN_GROUP, FUNC) \
+  hooked = ([func, realFunc]() {            \
+    FOR_EACH_IN_GROUP(FUNC);                \
+    return (void *)NULL;                    \
+  })();                                     \
+  if(hooked)                                \
+    return hooked;
+
+  ForEachSupportedGroup(CheckGroup, CheckFunction);
+  ForEachUnsupportedGroup(CheckGroup, CheckUnsupported);
+#else
   ForEachSupported(CheckFunction);
   ForEachUnsupported(CheckUnsupported);
+#endif
 
   // for any other function, if it's not a core or extension function we know about,
   // return the real function pointer as this may be something internal
