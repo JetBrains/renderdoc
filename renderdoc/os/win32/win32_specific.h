@@ -97,13 +97,23 @@ inline uint64_t CountTrailingZeroes(uint64_t value)
 
 inline uint32_t CountOnes(uint32_t value)
 {
+#if _M_ARM64
+  const __n64 tmp = neon_cnt(__uint64ToN64_v(value));
+  return neon_addv8(tmp).n8_u8[0];
+#else
   return __popcnt(value);
+#endif
 }
 
 #if ENABLED(RDOC_X64)
 inline uint64_t CountOnes(uint64_t value)
 {
+#if _M_ARM64
+  const __n64 tmp = neon_cnt(__uint64ToN64_v(value));
+  return neon_addv8(tmp).n8_u8[0];
+#else
   return __popcnt64(value);
+#endif
 }
 #endif
 };
