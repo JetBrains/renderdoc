@@ -3,8 +3,10 @@ import com.jetbrains.rd.generator.gradle.RdGenTask
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
+import org.gradle.nativeplatform.platform.internal.ArchitectureInternal
 import org.gradle.nativeplatform.platform.internal.Architectures
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
+import org.gradle.nativeplatform.platform.internal.OperatingSystemInternal
 import org.jetbrains.kotlin.utils.addToStdlib.butIf
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import kotlin.io.path.Path
@@ -57,7 +59,7 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
 }
 
-val hostArchitecture = provider {
+val platformArchitecture = provider {
     val host = DefaultNativePlatform.host()
     val architecture = host.architecture
     // NativePlatform lies about ARM64 architecture on Windows ARM64 because Java (JDK 21) is x64 only
@@ -69,23 +71,32 @@ val hostArchitecture = provider {
 
 val hostOs = provider { DefaultNativePlatform.host().operatingSystem }
 
+val targetArchitecture = platformArchitecture.map { arch ->
+    System.getenv("RENDERDOC_TARGET_ARCHITECTURE")?.let { Architectures.forInput(it) }?.let { targetArch ->
+        val os = hostOs.get()
+        val isAvailable = arch == targetArch || os.isWindows && arch.isAmd64 && targetArch.isArm64
+        if (!isAvailable) {
+            throw GradleException("Cross-compilation only available for Windows ARM64 on Windows AMD64 (were $targetArch on $os $arch")
+        }
+        targetArch
+    } ?: arch
+}
+
+fun ArchitectureInternal.asSlug() = when {
+    isArm64 -> "aarch64"
+    isAmd64 -> "x86_64"
+    else -> throw UnsupportedOperationException("Unsupported architecture: $this")
+}
+
+fun OperatingSystemInternal.asSlug() = when {
+    isWindows -> "windows"
+    isLinux -> "linux"
+    isMacOsX -> "macos"
+    else -> throw UnsupportedOperationException("Unsupported operating system: $this")
+}
+
 val runtimeSuffix = provider {
-    val architecture = hostArchitecture.get()
-    val archSlug = when {
-        architecture.isArm64 -> "aarch64"
-        architecture.isAmd64 -> "x86_64"
-        else -> throw UnsupportedOperationException("Unsupported architecture: $architecture")
-    }
-
-    val os = hostOs.get()
-    val osSlug = when {
-        os.isWindows -> "windows"
-        os.isLinux -> "linux"
-        os.isMacOsX -> "macos"
-        else -> throw UnsupportedOperationException("Unsupported operating system: $os")
-    }
-
-    "$osSlug-$archSlug"
+    "${hostOs.get().asSlug()}-${targetArchitecture.get().asSlug()}"
 }
 val binaryName = hostOs.map { os -> "RenderDocHost".butIf(os.isWindows) { "$it.exe" } }
 val nativeBinaryOutputDir = layout.buildDirectory.dir("libs/bin")
@@ -145,22 +156,32 @@ val buildRenderDocHostUnsigned by tasks.registering(Task::class) {
     val isWindows = hostOs.get().isWindows
 
     doFirst {
+        val platformArch = platformArchitecture.get()
+        val targetArch = targetArchitecture.get()
+        val isCrossCompile = platformArch != targetArch
+
         val generateCommandLine = mutableListOf(
             "cmake",
             ".",
-            "-G",
-            "Ninja",
             "-B",
             cmakeBuildDir,
             "-DJETBRAINS:BOOL=ON",
             "-DCMAKE_BUILD_TYPE=${cmakeConfig}",
             "-DENABLE_QRENDERDOC:BOOL=OFF",
             "-DENABLE_PYRENDERDOC:BOOL=OFF",
-            "-DENABLE_PCH_HEADERS:BOOL=OFF"
+            "-DENABLE_PCH_HEADERS:BOOL=OFF",
+            "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${cmakeConfig.uppercase()}=${project.projectDir.toPath().resolve(binDirPath).normalize()}"
         )
+        if (isCrossCompile) {
+            generateCommandLine.add("-DCMAKE_TOOLCHAIN_FILE=${hostOs.get().asSlug()}-${platformArch.asSlug()}-${targetArch.asSlug()}-toolchain.cmake")
+        } else {
+            generateCommandLine.add("-G")
+            generateCommandLine.add("Ninja")
+        }
+
         project.findProperty("rdFetchPath")?.let { generateCommandLine.add("-DRD_FETCH_PATH=${it}") }
 
-        val buildCommandLine = listOf("cmake", "--build", cmakeBuildDir)
+        val buildCommandLine = listOf("cmake", "--build", cmakeBuildDir, "--config", cmakeConfig)
         runIf(isWindows) {
             val vsVars = providers.of(VsVarsValueSource::class) {}.get()
 
@@ -169,7 +190,9 @@ val buildRenderDocHostUnsigned by tasks.registering(Task::class) {
 
                 environment("CC" to "cl", "CXX" to "cl")
 
-                val vsArch = if (hostArchitecture.get().isArm64) "arm64" else "amd64"
+                fun ArchitectureInternal.asVsArch() = if (isArm64) "arm64" else "amd64"
+
+                val vsArch = if (isCrossCompile) "${platformArch.asVsArch()}_${targetArch.asVsArch()}" else targetArch.asVsArch()
                 val vsVarsCommand = "\"$vsVars\" $vsArch"
                 val combinedCommand = "$vsVarsCommand && ${generateCommandLine.joinToString(" ")} && ${buildCommandLine.joinToString(" ")}"
                 commandLine("cmd", "/c", combinedCommand)
