@@ -1,4 +1,4 @@
-rootProject.name = "renderdoc"
+rootProject.name = "renderdoc-rd-client"
 
 pluginManagement {
     val rdVersion: String by settings
