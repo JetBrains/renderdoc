@@ -10,6 +10,8 @@ import org.gradle.nativeplatform.platform.internal.OperatingSystemInternal
 import org.jetbrains.kotlin.utils.addToStdlib.butIf
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import kotlin.io.path.Path
+import kotlin.io.path.createFile
+import kotlin.io.path.exists
 
 val rdVersion by properties
 
@@ -24,6 +26,7 @@ plugins {
     id("com.jetbrains.rdgen")
     id("idea")
     id("maven-publish")
+    id("de.undercouch.download") version "5.6.0"
 
     kotlin("jvm") version "1.9.21"
 }
@@ -72,7 +75,7 @@ val platformArchitecture = provider {
 val hostOs = provider { DefaultNativePlatform.host().operatingSystem }
 
 val targetArchitecture = platformArchitecture.map { arch ->
-    System.getenv("RENDERDOC_TARGET_ARCHITECTURE")?.let { Architectures.forInput(it) }?.let { targetArch ->
+    System.getenv("RENDERDOC_TARGET_ARCHITECTURE").takeIf { !it.isNullOrEmpty() }?.let { Architectures.forInput(it) }?.let { targetArch ->
         val os = hostOs.get()
         val isAvailable = arch == targetArch || os.isWindows && arch.isAmd64 && targetArch.isArm64
         if (!isAvailable) {
@@ -88,17 +91,21 @@ fun ArchitectureInternal.asSlug() = when {
     else -> throw UnsupportedOperationException("Unsupported architecture: $this")
 }
 
-fun OperatingSystemInternal.asSlug() = when {
-    isWindows -> "windows"
-    isLinux -> "linux"
-    isMacOsX -> "macos"
+fun<T> OperatingSystemInternal.select(windows: T, linux: T, macOs: T) = when {
+    isWindows -> windows
+    isLinux -> linux
+    isMacOsX -> macOs
     else -> throw UnsupportedOperationException("Unsupported operating system: $this")
 }
+
+fun OperatingSystemInternal.asSlug() = select("windows", "linux", "macos")
+
+fun OperatingSystemInternal.executableName(name: String) = name.butIf(isWindows) { "$it.exe" }
 
 val runtimeSuffix = provider {
     "${hostOs.get().asSlug()}-${targetArchitecture.get().asSlug()}"
 }
-val binaryName = hostOs.map { os -> "RenderDocHost".butIf(os.isWindows) { "$it.exe" } }
+val binaryName = hostOs.map { os -> os.executableName("RenderDocHost") }
 val nativeBinaryOutputDir = layout.buildDirectory.dir("libs/bin")
 
 val generateModel by tasks.registering(RdGenTask::class) {
@@ -146,8 +153,49 @@ val generateModel by tasks.registering(RdGenTask::class) {
     }
 }
 
+val userLocalAppData = provider {
+    if (hostOs.get().isWindows)
+        Path(System.getenv("LOCALAPPDATA"))
+    else
+        Path(System.getenv("HOME"), ".local", "share")
+}
+
+val installNinja by tasks.registering(Task::class) {
+    val version = "v1.12.0"
+    val ninjaDir = userLocalAppData.get().resolve("gradle-ninja").resolve(version)
+    val os = hostOs.get()
+    doFirst {
+        val flagFile = ninjaDir.resolve(".flag")
+        if (flagFile.exists()) return@doFirst
+
+        val suffix = platformArchitecture.get().let {
+            when {
+                it.isArm64 -> os.select("winarm64", "linux-aarch64", "mac")
+                else -> os.select("win", "linux", "mac")
+            }
+        }
+
+        val zipName = "ninja-${suffix}.zip"
+        val zipFile = layout.buildDirectory.file(zipName)
+        download.run {
+            src("https://github.com/ninja-build/ninja/releases/download/${version}/${zipName}")
+            dest(zipFile)
+        }
+
+        copy {
+            from(zipTree(zipFile))
+            into(ninjaDir)
+        }
+
+        flagFile.createFile()
+    }
+
+    outputs.file(ninjaDir.resolve(os.executableName("ninja")))
+}
+
 val buildRenderDocHostUnsigned by tasks.registering(Task::class) {
     dependsOn(generateModel)
+    dependsOn(installNinja)
 
     val cmakeConfig = if (project.findProperty("rdDebug") != "true") "Release" else "Debug"
     val cmakeBuildDir = "cmake-build-${cmakeConfig.lowercase()}"
@@ -175,8 +223,7 @@ val buildRenderDocHostUnsigned by tasks.registering(Task::class) {
         if (isCrossCompile) {
             generateCommandLine.add("-DCMAKE_TOOLCHAIN_FILE=${hostOs.get().asSlug()}-${platformArch.asSlug()}-${targetArch.asSlug()}-toolchain.cmake")
         } else {
-            generateCommandLine.add("-G")
-            generateCommandLine.add("Ninja")
+            generateCommandLine.addAll(sequenceOf("-G", "Ninja", "-DCMAKE_MAKE_PROGRAM=${installNinja.get().outputs.files.singleFile}"))
         }
 
         project.findProperty("rdFetchPath")?.let { generateCommandLine.add("-DRD_FETCH_PATH=${it}") }
@@ -256,6 +303,8 @@ tasks {
     }
 
     test {
+        onlyIf { platformArchitecture.get() == targetArchitecture.get() }
+
         useJUnitPlatform()
 
         inputs.files(buildRenderDocHost)
