@@ -3,10 +3,13 @@ add_library(RenderDocService STATIC
         RenderDocService.h
         RenderDocReplay.cpp
         RenderDocReplay.h
+        util/RenderDocConverterUtils.h
+        util/RenderDocConverterUtils.cpp
         RenderDocDebugSession.cpp
         RenderDocDebugSession.h
         util/StringUtils.cpp
         util/StringUtils.h
+        util/ArrayUtils.h
         RenderDocEvent.cpp
         RenderDocEvent.h
         RenderDocFile.cpp

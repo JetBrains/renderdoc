@@ -2,6 +2,8 @@
 
 #include "RenderDocModel/RdcDebugStack.Generated.h"
 #include "types/wrapper.h"
+#include "util/ArrayUtils.h"
+#include "util/RenderDocConverterUtils.h"
 #include "util/StringUtils.h"
 #include <api/replay/renderdoc_replay.h>
 
@@ -121,12 +123,13 @@ std::vector<rd::Wrapper<model::RdcSourceFile>> RenderDocDebugSession::get_source
 }
 
 RenderDocDebugSession::RenderDocDebugSession(const rd::Lifetime& session_lifetime, const std::shared_ptr<IReplayController> &controller, ShaderDebugTrace *trace, const ShaderDebugInfo *debug_info)
-    :  RdcDebugSession(get_source_files(debug_info)), data(std::make_shared<RenderDocDebugSessionData>(trace, controller, debug_info)) {
+    :  RdcDebugSession(RenderDocConverterUtils::convertDebugTrace(*trace), get_source_files(debug_info)), data(std::make_shared<RenderDocDebugSessionData>(trace, controller, debug_info)) {
   get_stepInto().advise(session_lifetime, [this] { step_into(); });
   get_stepOver().advise(session_lifetime,[this] { step_over(); });
   get_addBreakpoint().advise(session_lifetime, [this](const auto& req) { add_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
   get_removeBreakpoint().advise(session_lifetime, [this](const auto &req) { remove_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
   get_resume().advise(session_lifetime, [this] { resume(); });
+  get_getStageVariableInfo().set([this](const auto &) { return get_stage_variable_info(); });
 }
 
 void RenderDocDebugSession::step_into() const {
@@ -167,6 +170,12 @@ void RenderDocDebugSession::resume() const {
   }
 
   get_currentStack().set(rd::Wrapper<model::RdcDebugStack>(nullptr));
+}
+
+rd::Wrapper<model::RdcStageVariableInfo> RenderDocDebugSession::get_stage_variable_info() const {
+  auto sourceVars = ArrayUtils::CopyToVector(data->current_instruction.sourceVars, RenderDocConverterUtils::convertSourceMapping);
+  auto changes = ArrayUtils::CopyToVector(data->current_state->changes, RenderDocConverterUtils::convertVariableChange);
+  return model::RdcStageVariableInfo(sourceVars, changes);
 }
 
 void RenderDocDebugSession::add_breakpoint(uint32_t source_file_index, uint32_t line) const {

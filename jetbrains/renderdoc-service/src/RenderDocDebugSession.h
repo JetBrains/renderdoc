@@ -27,6 +27,7 @@ public:
   void resume() const;
   void add_breakpoint(uint32_t source_file_index, uint32_t line) const;
   void remove_breakpoint(uint32_t source_file_index, uint32_t line) const;
+  rd::Wrapper<model::RdcStageVariableInfo> get_stage_variable_info() const;
 };
 
 }
