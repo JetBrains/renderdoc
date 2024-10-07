@@ -74,17 +74,34 @@ RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{rep
   get_debugVertex().set([this](const rd::Lifetime& lifetime, const auto& req) {
     return debug_vertex(lifetime, req);
   });
+  get_debugPixel().set([this](const rd::Lifetime& lifetime, const auto& req) {
+    return debug_pixel(lifetime, req);
+  });
 }
 
-rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const uint32_t event_id) const {
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug(const ShaderStage &stage, const rd::Lifetime &session_lifetime, const uint32_t event_id) const {
   controller->SetFrameEvent(event_id, true);
 
   const auto &pipeline = controller->GetPipelineState();
-  const auto vertex_shader = pipeline.GetShaderReflection(ShaderStage::Vertex);
-  const auto trace = controller->DebugVertex(0, 0, 0, IReplayController::NoPreference);
-  auto&& session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, controller, trace, &vertex_shader->debugInfo);
+  const auto shader = pipeline.GetShaderReflection(stage);
+  ShaderDebugTrace *trace;
+  if (stage == ShaderStage::Vertex) {
+    trace = controller->DebugVertex(0, 0, 0, IReplayController::NoPreference);
+  } else {
+    const DebugPixelInputs inputs;
+    trace = controller->DebugPixel(400, 400, inputs);
+  }
+  auto&& session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, controller, trace, &shader->debugInfo);
   session->step_into();
   return session;
+}
+
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const uint32_t event_id) const {
+  return debug(ShaderStage::Vertex, session_lifetime, event_id);
+}
+
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_pixel(const rd::Lifetime &session_lifetime, const uint32_t event_id) const {
+  return debug(ShaderStage::Pixel, session_lifetime, event_id);
 }
 
 }
