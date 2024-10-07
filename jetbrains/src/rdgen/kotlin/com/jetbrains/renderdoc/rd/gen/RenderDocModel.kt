@@ -207,6 +207,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("rootActions", array(rdcAction))
 
             callback("debugVertex", uint, rdcDebugSession)
+            callback("debugPixel", uint, rdcDebugSession)
         }
 
         val rdcCaptureFile = classdef("rdcCaptureFile") {
