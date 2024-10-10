@@ -32,4 +32,48 @@ rd::Wrapper<model::RdcDebugTrace> RenderDocConverterUtils::convertDebugTrace(con
 rd::Wrapper<model::RdcShaderVariableChange> RenderDocConverterUtils::convertVariableChange(const ShaderVariableChange &change) {
   return model::RdcShaderVariableChange(convertShaderVariable(change.before), convertShaderVariable(change.after));
 }
+
+rd::Wrapper<model::RdcUsedDescriptor> RenderDocConverterUtils::convertDescriptor(const UsedDescriptor &r) {
+  const rd::Wrapper<model::RdcDescriptorAccess> access = model::RdcDescriptorAccess(static_cast<model::RdcDescriptorType>(r.access.type), r.access.index, r.access.arrayElement);
+  if (const auto resource = r.descriptor.resource; resource == ResourceId::Null())
+    return {model::RdcUsedDescriptor(access, rd::nullopt) };
+  return { model::RdcUsedDescriptor(access, *reinterpret_cast<const uint64_t*>(&r.descriptor.resource)) };
+}
+
+rd::Wrapper<model::RdcShaderConstant> RenderDocConverterUtils::convertShaderConstant(const ShaderConstant &c) {
+  return { model::RdcShaderConstant(StringUtils::Utf8ToWide(c.name), c.byteOffset, c.bitFieldOffset, c.bitFieldSize, c.defaultValue, convertShaderConstantType(c.type), ArrayUtils::CopyToVector(c.type.members, convertShaderConstant)) };
+}
+
+rd::Wrapper<model::RdcShaderConstantType> RenderDocConverterUtils::convertShaderConstantType(const ShaderConstantType &t) {
+  return { model::RdcShaderConstantType(StringUtils::Utf8ToWide(t.name), static_cast<model::RdcVariableFlags>(t.flags),
+    t.pointerTypeID, t.elements, t.arrayByteStride, static_cast<model::RdcVarType>(t.baseType), t.rows, t.columns, t.matrixByteStride) };
+}
+
+rd::Wrapper<model::RdcShaderResource> RenderDocConverterUtils::convertResource(const ShaderResource &r) {
+  return { model::RdcShaderResource(static_cast<model::RdcTextureType>(r.textureType), static_cast<model::RdcDescriptorType>(r.descriptorType), StringUtils::Utf8ToWide(r.name),
+    convertShaderConstantType(r.variableType), ArrayUtils::CopyToVector(r.variableType.members, convertShaderConstant), r.fixedBindNumber, r.fixedBindSetOrSpace, r.bindArraySize,
+    r.isTexture, r.hasSampler, r.isInputAttachment, r.isReadOnly) };
+}
+
+rd::Wrapper<model::RdcConstantBlock> RenderDocConverterUtils::convertConstantBlock(const ConstantBlock &b) {
+  return { model::RdcConstantBlock(StringUtils::Utf8ToWide(b.name), ArrayUtils::CopyToVector(b.variables, convertShaderConstant), b.fixedBindNumber, b.fixedBindSetOrSpace, b.bindArraySize, b.byteSize, b.bufferBacked, b.inlineDataBytes, b.compileConstants) };
+}
+
+rd::Wrapper<model::RdcShaderSampler> RenderDocConverterUtils::convertSampler(const ShaderSampler &s) {
+  return { model::RdcShaderSampler(StringUtils::Utf8ToWide(s.name), s.fixedBindNumber, s.fixedBindSetOrSpace, s.bindArraySize) };
+}
+
+std::vector<rd::Wrapper<model::RdcUsedDescriptor>> RenderDocConverterUtils::convertResources(const rdcarray<UsedDescriptor> &resources) {
+  return ArrayUtils::CopyToVector(resources, convertDescriptor);
+}
+
+rd::Wrapper<model::RdcShaderReflection> RenderDocConverterUtils::convertShaderReflection(const ShaderReflection *shader) {
+  if (shader == nullptr)
+    throw std::invalid_argument("ShaderReflection should not be nullptr");
+  return { model::RdcShaderReflection(
+    ArrayUtils::CopyToVector(shader->constantBlocks, convertConstantBlock),
+    ArrayUtils::CopyToVector(shader->samplers, convertSampler),
+    ArrayUtils::CopyToVector(shader->readOnlyResources, convertResource),
+    ArrayUtils::CopyToVector(shader->readWriteResources, convertResource)) };
+}
 }
