@@ -122,8 +122,20 @@ std::vector<rd::Wrapper<model::RdcSourceFile>> RenderDocDebugSession::get_source
   return source_files;
 }
 
+std::vector<rd::Wrapper<model::RdcResourceInfo>> RenderDocDebugSession::get_resource(const std::shared_ptr<IReplayController> &controller) {
+  auto resources = controller->GetResources();
+  std::vector<rd::Wrapper<model::RdcResourceInfo>> result(resources.size());
+  size_t i = 0;
+  for (const auto &r: resources) {
+    result[i++] = model::RdcResourceInfo(*reinterpret_cast<const uint64_t *>(&r.resourceId), StringUtils::Utf8ToWide(r.name));
+  }
+  return result;
+}
+
 RenderDocDebugSession::RenderDocDebugSession(const rd::Lifetime& session_lifetime, const std::shared_ptr<IReplayController> &controller, ShaderDebugTrace *trace, const ShaderDebugInfo *debug_info)
-    :  RdcDebugSession(RenderDocConverterUtils::convertDebugTrace(*trace), get_source_files(debug_info)), data(std::make_shared<RenderDocDebugSessionData>(trace, controller, debug_info)) {
+    :  RdcDebugSession(RenderDocConverterUtils::convertDebugTrace(*trace), get_source_files(debug_info), get_resource(controller), RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadOnlyResources(trace->stage)),
+      RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadWriteResources(trace->stage)), RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetSamplers(trace->stage)),
+      RenderDocConverterUtils::convertShaderReflection(controller->GetPipelineState().GetShaderReflection(trace->stage))), data(std::make_shared<RenderDocDebugSessionData>(trace, controller, debug_info)) {
   get_stepInto().advise(session_lifetime, [this] { step_into(); });
   get_stepOver().advise(session_lifetime,[this] { step_over(); });
   get_addBreakpoint().advise(session_lifetime, [this](const auto& req) { add_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
