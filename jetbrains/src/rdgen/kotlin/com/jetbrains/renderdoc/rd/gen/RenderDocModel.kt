@@ -30,17 +30,12 @@ object RenderDocModel : Ext(RenderDocRoot) {
 
         val rdcShaderStage = enum("rdcShaderStage") {
             +"Vertex"
-//            appendEntry("First", 0)
             +"Hull"
-//            appendEntry("Tess_Control", 1)
             +"Domain"
-//            appendEntry("Tess_Eval", 2)
             +"Geometry"
             +"Pixel"
-//            appendEntry("Fragment", 4)
             +"Compute"
             +"Task"
-//            appendEntry("Amplification", 6)
             +"Mesh"
             +"RayGen"
             +"Intersection"
@@ -176,14 +171,130 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("sourceVars", array(rdcSourceVariableMapping))
         }
 
+        val rdcDescriptorType = enum("rdcDescriptorType") {
+            +"Unknown"
+            +"ConstantBuffer"
+            +"Sampler"
+            +"ImageSampler"
+            +"Image"
+            +"Buffer"
+            +"TypedBuffer"
+            +"ReadWriteImage"
+            +"ReadWriteTypedBuffer"
+            +"ReadWriteBuffer"
+            +"AccelerationStructure"
+        }
+
+        val rdcDescriptorAccess = structdef("rdcDescriptorAccess") {
+            field("type", rdcDescriptorType)
+            field("index", uint16)
+            field("arrayElement", uint32)
+        }
+
+        val rdcUsedDescriptor = structdef("rdcUsedDescriptor") {
+            field("access", rdcDescriptorAccess)
+            field("resourceId", uint64.nullable)
+        }
+
         val rdcStageVariableInfo = structdef("rdcStageVariableInfo") {
             field("currentVariables", array(rdcSourceVariableMapping))
             field("variableChanges", array(rdcShaderVariableChange))
         }
 
+        val rdcShaderSampler = structdef("rdcShaderSampler") {
+            field("name", string)
+            field("fixedBindNumber", uint32)
+            field("fixedBindSetOrSpace", uint32)
+            field("bindArraySize", uint32)
+        }
+
+        val rdcShaderConstantType = structdef("rdcShaderConstantType") {
+            field("name", string)
+            field("flags", rdcVariableFlags)
+            field("pointerTypeID", uint32)
+            field("elements", uint32)
+            field("arrayByteStride", uint32)
+            field("baseType", rdcVarType)
+            field("rows", uint8)
+            field("columns", uint8)
+            field("matrixByteStride", uint8)
+        }
+
+        val rdcShaderConstant = structdef("rdcShaderConstant") {
+            field("name", string)
+            field("byteOffset", uint32)
+            field("bitFieldOffset", uint16)
+            field("bitFieldSize", uint16)
+            field("defaultValue", uint64)
+            field("type", rdcShaderConstantType)
+            field("typeMembers", array(this))
+        }
+
+        val rdcConstantBlock = structdef("rdcConstantBlock") {
+            field("name", string)
+            field("variables", array(rdcShaderConstant))
+            field("fixedBindNumber", uint32)
+            field("fixedBindSetOrSpace", uint32)
+            field("bindArraySize", uint32)
+            field("byteSize", uint32)
+            field("bufferBacked", bool)
+            field("inlineDataBytes", bool)
+            field("compileConstants", bool)
+        }
+
+        val rdcTextureType = enum("rdcTextureType") {
+            +"Unknown"
+            +"Buffer"
+            +"Texture1D"
+            +"Texture1DArray"
+            +"Texture2D"
+            +"TextureRect"
+            +"Texture2DArray"
+            +"Texture2DMS"
+            +"Texture2DMSArray"
+            +"Texture3D"
+            +"TextureCube"
+            +"TextureCubeArray"
+            +"Count"
+        }
+
+        val rdcShaderResource = structdef("rdcShaderResource") {
+            field("textureType", rdcTextureType)
+            field("descriptorType", rdcDescriptorType)
+            field("name", string)
+            field("variableType", rdcShaderConstantType)
+            field("typeMembers", array(rdcShaderConstant))
+            field("fixedBindNumber", uint32)
+            field("fixedBindSetOrSpace", uint32)
+            field("bindArraySize", uint32)
+            field("isTexture", bool)
+            field("hasSampler", bool)
+            field("isInputAttachment", bool)
+            field("isReadOnly", bool)
+        }
+
+        val rdcShaderReflection = structdef("rdcShaderReflection") {
+            field("constantBlocks", array(rdcConstantBlock))
+            field("samplers", array(rdcShaderSampler))
+            field("readOnlyResources", array(rdcShaderResource))
+            field("readWriteResources", array(rdcShaderResource))
+        }
+
+        val rdcResourceInfo = structdef("rdcResourceInfo") {
+            field("id", uint64)
+            field("name", string)
+        }
+
         val rdcDebugSession = classdef("rdcDebugSession") {
             field("debugTrace", rdcDebugTrace)
             field("sourceFiles", array(rdcSourceFile))
+
+            field("allResources", array(rdcResourceInfo))
+            field("readOnlyResources", array(rdcUsedDescriptor))
+            field("readWriteResources", array(rdcUsedDescriptor))
+            field("samplers", array(rdcUsedDescriptor))
+            field("shaderDetails", rdcShaderReflection)
+
             property("currentStack", rdcDebugStack.nullable)
 
             sink("stepInto", void)
