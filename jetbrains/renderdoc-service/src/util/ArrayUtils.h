@@ -2,7 +2,6 @@
 #define ARRAYUTILS_H
 
 #include <api/replay/renderdoc_replay.h>
-#include <cstdint>
 #include <vector>
 
 struct rdhalf;

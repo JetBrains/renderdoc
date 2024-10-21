@@ -7,9 +7,13 @@ add_library(RenderDocService STATIC
         util/RenderDocConverterUtils.cpp
         RenderDocDebugSession.cpp
         RenderDocDebugSession.h
+        RenderDocDrawCallDebugSession.cpp
+        RenderDocDrawCallDebugSession.h
         util/StringUtils.cpp
         util/StringUtils.h
         util/ArrayUtils.h
+        util/RenderDocActionHelpers.cpp
+        util/RenderDocActionHelpers.h
         RenderDocEvent.cpp
         RenderDocEvent.h
         RenderDocFile.cpp

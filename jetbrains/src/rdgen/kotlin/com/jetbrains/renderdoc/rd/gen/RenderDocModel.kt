@@ -196,9 +196,10 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("resourceId", uint64.nullable)
         }
 
-        val rdcStageVariableInfo = structdef("rdcStageVariableInfo") {
+        val rdcStageInfo = structdef("rdcStageInfo") {
             field("currentVariables", array(rdcSourceVariableMapping))
             field("variableChanges", array(rdcShaderVariableChange))
+            field("drawCallChanged", bool)
         }
 
         val rdcShaderSampler = structdef("rdcShaderSampler") {
@@ -285,7 +286,8 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("name", string)
         }
 
-        val rdcDebugSession = classdef("rdcDebugSession") {
+        val rdcDrawCallDebugSession = classdef("rdcDrawCallDebugSession") {
+            field("eventId", uint32)
             field("debugTrace", rdcDebugTrace)
             field("sourceFiles", array(rdcSourceFile))
 
@@ -294,15 +296,18 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("readWriteResources", array(rdcUsedDescriptor))
             field("samplers", array(rdcUsedDescriptor))
             field("shaderDetails", rdcShaderReflection)
+        }
 
+        val rdcDebugSession = classdef("rdcDebugSession") {
+            property("drawCallSession", rdcDrawCallDebugSession)
             property("currentStack", rdcDebugStack.nullable)
+            property("stageInfo", rdcStageInfo.nullable)
 
             sink("stepInto", void)
             sink("stepOver", void)
             sink("resume", void)
             sink("addBreakpoint", rdcLineBreakpoint)
             sink("removeBreakpoint", rdcLineBreakpoint)
-            callback("getStageVariableInfo", void, rdcStageVariableInfo)
         }
 
         val rdcAction = structdef("rdcAction") {
@@ -313,12 +318,19 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("children", array(this))
         }
 
+        val rdcSourceBreakpoint = structdef("rdcSourceBreakpoint") {
+            field("sourceFilePath", string)
+            field("line", uint)
+        }
+
         val rdcCapture = classdef("rdcCapture") {
             field("api", rdcGraphicsApi)
             field("rootActions", array(rdcAction))
 
             callback("debugVertex", uint, rdcDebugSession)
             callback("debugPixel", uint, rdcDebugSession)
+            callback("tryDebugVertex", immutableList(rdcSourceBreakpoint), rdcDebugSession)
+            callback("tryDebugPixel", immutableList(rdcSourceBreakpoint), rdcDebugSession)
         }
 
         val rdcCaptureFile = classdef("rdcCaptureFile") {
