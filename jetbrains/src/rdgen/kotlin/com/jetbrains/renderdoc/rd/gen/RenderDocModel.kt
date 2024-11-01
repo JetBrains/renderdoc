@@ -199,7 +199,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
         val rdcStageInfo = structdef("rdcStageInfo") {
             field("currentVariables", array(rdcSourceVariableMapping))
             field("variableChanges", array(rdcShaderVariableChange))
-            field("drawCallChanged", bool)
+            field("switchedDrawCall", bool)
         }
 
         val rdcShaderSampler = structdef("rdcShaderSampler") {
@@ -300,8 +300,8 @@ object RenderDocModel : Ext(RenderDocRoot) {
 
         val rdcDebugSession = classdef("rdcDebugSession") {
             property("drawCallSession", rdcDrawCallDebugSession)
-            property("currentStack", rdcDebugStack.nullable)
             property("stageInfo", rdcStageInfo.nullable)
+            property("currentStack", rdcDebugStack.nullable)
 
             sink("stepInto", void)
             sink("stepOver", void)
