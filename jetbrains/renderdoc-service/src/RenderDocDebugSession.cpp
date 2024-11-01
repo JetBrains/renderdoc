@@ -43,7 +43,7 @@ void RenderDocDebugSession::step_over() const {
 }
 
 void RenderDocDebugSession::resume() const {
-  navigate_to_next_not_null_stack([&] { return data->draw_call_session->resume(); });
+  navigate_to_next_not_null_stack([&] { return data->draw_call_session->resume(); }, true);
 }
 
 void RenderDocDebugSession::add_breakpoint(uint32_t source_file_index, uint32_t line) const {
@@ -70,12 +70,11 @@ bool RenderDocDebugSession::step_to_next_draw_call() const {
   return false;
 }
 
-void RenderDocDebugSession::navigate_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func) const {
+void RenderDocDebugSession::navigate_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, bool is_resume) const {
   rd::Wrapper<model::RdcDebugStack> stack;
-  bool call_changed = false;
-
+  bool switched = false;
   while (!((stack = func()))) {
-    if (data->is_draw_call_debug || !((call_changed = step_to_next_draw_call()))) {
+    if (data->is_draw_call_debug || !((switched = step_to_next_draw_call())) || !is_resume) {
       get_drawCallSession().set(data->draw_call_session);
       get_stageInfo().set(rd::Wrapper<model::RdcStageInfo>(nullptr));
       get_currentStack().set(rd::Wrapper<model::RdcDebugStack>(nullptr));
@@ -84,7 +83,7 @@ void RenderDocDebugSession::navigate_to_next_not_null_stack(const std::function<
   }
 
   get_drawCallSession().set(data->draw_call_session);
-  get_stageInfo().set(rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_variable_changes(), call_changed));
+  get_stageInfo().set(rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_variable_changes(), switched));
   get_currentStack().set(stack);
 }
 
