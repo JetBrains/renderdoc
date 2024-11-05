@@ -7,10 +7,12 @@ enum class ShaderStage : uint8_t;
 struct IReplayController;
 
 namespace jetbrains::renderdoc {
+class RenderDocLineBreakpointsMapper;
 
 class RenderDocReplay : public model::RdcCapture {
 public:
   std::shared_ptr<IReplayController> controller;
+  std::shared_ptr<RenderDocLineBreakpointsMapper> mapper;
 
   explicit RenderDocReplay(IReplayController *controller);
 
