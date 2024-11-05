@@ -103,6 +103,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
         }
 
         val rdcDebugStack = structdef("rdcDebugStack") {
+            field("drawCallId", uint32)
             field("stepIndex", int)
             field("sourceFileIndex", int)
             field("lineStart", uint)
@@ -199,7 +200,6 @@ object RenderDocModel : Ext(RenderDocRoot) {
         val rdcStageInfo = structdef("rdcStageInfo") {
             field("currentVariables", array(rdcSourceVariableMapping))
             field("variableChanges", array(rdcShaderVariableChange))
-            field("switchedDrawCall", bool)
         }
 
         val rdcShaderSampler = structdef("rdcShaderSampler") {
@@ -287,7 +287,6 @@ object RenderDocModel : Ext(RenderDocRoot) {
         }
 
         val rdcDrawCallDebugSession = classdef("rdcDrawCallDebugSession") {
-            field("eventId", uint32)
             field("debugTrace", rdcDebugTrace)
             field("sourceFiles", array(rdcSourceFile))
 
@@ -298,6 +297,11 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("shaderDetails", rdcShaderReflection)
         }
 
+        val rdcSourceBreakpoint = structdef("rdcSourceBreakpoint") {
+            field("sourceFilePath", string)
+            field("line", uint)
+        }
+
         val rdcDebugSession = classdef("rdcDebugSession") {
             property("drawCallSession", rdcDrawCallDebugSession)
             property("stageInfo", rdcStageInfo.nullable)
@@ -306,8 +310,8 @@ object RenderDocModel : Ext(RenderDocRoot) {
             sink("stepInto", void)
             sink("stepOver", void)
             sink("resume", void)
-            sink("addBreakpoint", rdcLineBreakpoint)
-            sink("removeBreakpoint", rdcLineBreakpoint)
+            sink("addBreakpoint", rdcSourceBreakpoint)
+            sink("removeBreakpoint", rdcSourceBreakpoint)
         }
 
         val rdcAction = structdef("rdcAction") {
@@ -316,11 +320,6 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("name", string)
             field("flags", rdcActionFlags)
             field("children", array(this))
-        }
-
-        val rdcSourceBreakpoint = structdef("rdcSourceBreakpoint") {
-            field("sourceFilePath", string)
-            field("line", uint)
         }
 
         val rdcCapture = classdef("rdcCapture") {

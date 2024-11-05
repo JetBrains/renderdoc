@@ -29,7 +29,7 @@ model::RdcGraphicsApi get_graphics_api(IReplayController *controller) {
 
 }
 
-RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{replay::helpers::get_graphics_api(controller), replay::helpers::get_root_actions(controller)}, controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }) {
+RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{replay::helpers::get_graphics_api(controller), replay::helpers::get_root_actions(controller)}, controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(std::make_shared<RenderDocLineBreakpointsMapper>()) {
   get_debugVertex().set([this](const rd::Lifetime& lifetime, const auto& req) {
     return debug_vertex(lifetime, req);
   });
@@ -80,7 +80,10 @@ rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_vertex(c
   const auto &pipeline = controller->GetPipelineState();
   const auto shader = pipeline.GetShaderReflection(ShaderStage::Vertex);
   ShaderDebugTrace *trace = controller->DebugVertex(0, 0, 0, IReplayController::NoPreference);
-  return rd::wrapper::make_wrapper<RenderDocDrawCallDebugSession>(action, controller, trace, &shader->debugInfo, shader);
+  const auto &drawCallSession = rd::wrapper::make_wrapper<RenderDocDrawCallDebugSession>(action, controller, trace, &shader->debugInfo, shader);
+  if (drawCallSession)
+    mapper->register_sources_usages_in_draw_call(action->eventId, drawCallSession->get_sourceFiles());
+  return drawCallSession;
 }
 
 rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_pixel(const ActionDescription *action) const {
@@ -92,7 +95,10 @@ rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_pixel(co
   ShaderDebugTrace *trace = controller->DebugPixel(400, 400, inputs);
   if (trace == nullptr)
     return rd::Wrapper<RenderDocDrawCallDebugSession>(nullptr);
-  return rd::wrapper::make_wrapper<RenderDocDrawCallDebugSession>(action, controller, trace, &shader->debugInfo, shader);
+  const auto &drawCallSession = rd::wrapper::make_wrapper<RenderDocDrawCallDebugSession>(action, controller, trace, &shader->debugInfo, shader);
+  if (drawCallSession)
+    mapper->register_sources_usages_in_draw_call(action->eventId, drawCallSession->get_sourceFiles());
+  return drawCallSession;
 }
 
 }

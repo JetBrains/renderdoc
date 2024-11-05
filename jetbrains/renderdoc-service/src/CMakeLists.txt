@@ -18,6 +18,8 @@ add_library(RenderDocService STATIC
         RenderDocEvent.h
         RenderDocFile.cpp
         RenderDocFile.h
+        util/RenderDocLineBreakpointsMapper.cpp
+        util/RenderDocLineBreakpointsMapper.h
 )
 
 if (ENABLE_PCH_HEADERS)

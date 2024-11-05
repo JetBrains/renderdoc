@@ -4,11 +4,16 @@
 #include "types/wrapper.h"
 #include "util/ArrayUtils.h"
 #include "util/RenderDocConverterUtils.h"
+#include "util/RenderDocLineBreakpointsMapper.h"
 #include "util/StringUtils.h"
 #include <api/replay/renderdoc_replay.h>
 #include <stack>
 
 namespace jetbrains::renderdoc {
+
+std::size_t RdcSourceBreakpointHash::operator()(const model::RdcSourceBreakpoint &bp) const noexcept {
+  return bp.hashCode();
+}
 
 struct RenderDocBreakpoint {
   uint32_t source_file;
@@ -44,10 +49,11 @@ struct RenderDocDrawCallDebugSessionData {
   InstructionSourceInfo current_instruction;
   std::stack<std::pair<size_t, InstructionSourceInfo>> calltrace;
   std::unordered_set<RenderDocBreakpoint, RenderDocBreakpoint::hash> breakpoints;
+  std::unordered_map<model::RdcSourceBreakpoint, std::vector<model::RdcLineBreakpoint>, RdcSourceBreakpointHash> breakpoints_mapping;
   size_t current_callstack_size;
 
   RenderDocDrawCallDebugSessionData(const ActionDescription *action, ShaderDebugTrace *trace, const std::shared_ptr<IReplayController> &controller, const ShaderDebugInfo *debug_info)
-      : action(action), trace(trace), controller(controller), debug_info(debug_info), current_callstack_size(0) {
+      : action(action), trace(trace), controller(controller), debug_info(debug_info), breakpoints_mapping({}), current_callstack_size(0) {
     current_instruction.lineInfo.fileIndex = -1;
   }
 
@@ -110,8 +116,6 @@ struct RenderDocDrawCallDebugSessionData {
   ~RenderDocDrawCallDebugSessionData() { controller->FreeTrace(trace); }
 };
 
-const std::wregex RenderDocDrawCallDebugSession::FILE_INFO_REGEX = std::wregex(LR"(//#line (\d+)(?:\s+"([^"]*)\")?)");
-
 std::vector<rd::Wrapper<model::RdcSourceFile>> RenderDocDrawCallDebugSession::get_source_files(const ShaderDebugInfo *debug_info) {
   std::vector<rd::Wrapper<model::RdcSourceFile>> source_files;
   const auto source_files_count = debug_info->files.count();
@@ -133,7 +137,7 @@ std::vector<rd::Wrapper<model::RdcResourceInfo>> RenderDocDrawCallDebugSession::
 }
 
 RenderDocDrawCallDebugSession::RenderDocDrawCallDebugSession(const ActionDescription* action, const std::shared_ptr<IReplayController> &controller, ShaderDebugTrace *trace, const ShaderDebugInfo *debug_info, const ShaderReflection *reflection)
-    :  RdcDrawCallDebugSession(action->eventId, RenderDocConverterUtils::convertDebugTrace(*trace), get_source_files(debug_info), get_resource(controller), RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadOnlyResources(trace->stage)),
+    :  RdcDrawCallDebugSession(RenderDocConverterUtils::convertDebugTrace(*trace), get_source_files(debug_info), get_resource(controller), RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadOnlyResources(trace->stage)),
       RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadWriteResources(trace->stage)), RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetSamplers(trace->stage)),
       RenderDocConverterUtils::convertShaderReflection(reflection)), data(std::make_shared<RenderDocDrawCallDebugSessionData>(action, trace, controller, debug_info)) {
 }
@@ -145,8 +149,8 @@ rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_into() con
   return make_debug_stack(data->current_state->stepIndex, data->current_instruction.lineInfo);
 }
 
-rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::make_debug_stack(const uint32_t step_index, LineColumnInfo const &line_column_info) {
-  return rd::wrapper::make_wrapper<model::RdcDebugStack>(step_index, line_column_info.fileIndex, line_column_info.lineStart, line_column_info.lineEnd, line_column_info.colStart, line_column_info.colEnd);
+rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::make_debug_stack(const uint32_t step_index, LineColumnInfo const &line_column_info) const {
+  return rd::wrapper::make_wrapper<model::RdcDebugStack>(get_action()->eventId, step_index, line_column_info.fileIndex, line_column_info.lineStart, line_column_info.lineEnd, line_column_info.colStart, line_column_info.colEnd);
 }
 
 rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_over() const {
@@ -195,47 +199,25 @@ void RenderDocDrawCallDebugSession::remove_breakpoint(uint32_t source_file_index
     data->breakpoints.erase(it);
 }
 
+std::vector<model::RdcLineBreakpoint> RenderDocDrawCallDebugSession::map_breakpoints_from_sources(const RenderDocLineBreakpointsMapper *mapper, const std::unordered_set<model::RdcSourceBreakpoint, RdcSourceBreakpointHash> &breakpoints) const {
+  std::vector<model::RdcLineBreakpoint> res;
+  if (sourceFiles_.empty())
+    return res;
 
-void RenderDocDrawCallDebugSession::map_and_add_breakpoints_from_sources(const std::unordered_map<std::wstring, std::vector<model::RdcSourceBreakpoint>> &breakpoints) const {
-  for (uint32_t i = 0; i < sourceFiles_.size(); ++i) {
-    const auto& file = sourceFiles_[i];
-    auto content = std::wistringstream(file->get_content());
-
-    std::wstring prev_file_path;
-    uint32_t prev_line_start = 0;
-    uint32_t prev_source_line = 0;
-    uint32_t j = 0;
-    for (std::wstring line; std::getline(content, line); ++j) {
-      if (std::wsmatch matches; std::regex_match(line, matches, FILE_INFO_REGEX) && matches.size() > 1) {
-        if (!prev_file_path.empty() && prev_line_start != 0 && prev_source_line != 0) {
-          if (const auto it = breakpoints.find(prev_file_path); it != breakpoints.end()) {
-            for (const auto& breakpoint : it->second) {
-              if (uint32_t line_idx = breakpoint.get_line() + 1; prev_source_line <= line_idx && line_idx <= prev_source_line + j - prev_line_start) {
-                add_breakpoint(i, prev_line_start + line_idx - prev_source_line + 1);
-              }
-            }
-          }
-        }
-
-        prev_line_start = j + 1;
-        prev_source_line = std::stoul(matches[1]);
-        if (matches.size() < 3 || !matches[2].matched)
-          continue;
-
-        prev_file_path = matches[2];
+  for (const auto &breakpoint : breakpoints) {
+    if (const auto &it = data->breakpoints_mapping.find(breakpoint); it != data->breakpoints_mapping.end()) {
+      for (const auto &bp: it->second) {
+        res.push_back(bp);
       }
-    }
-    if (prev_file_path.empty())
-      return;
-
-    if (const auto it = breakpoints.find(prev_file_path); it != breakpoints.end()) {
-      for (const auto& breakpoint : it->second) {
-        if (uint32_t line_idx = breakpoint.get_line() + 1; prev_source_line <= line_idx && line_idx <= prev_source_line + j - prev_line_start) {
-          add_breakpoint(i, prev_line_start + line_idx - prev_source_line + 1);
-        }
+    } else {
+      for (const auto &[idx, line] : mapper->map_source_line(data->action->eventId, breakpoint.get_sourceFilePath(), breakpoint.get_line())) {
+        data->breakpoints_mapping[breakpoint].emplace_back(idx, line);
+        res.emplace_back(idx, line);
       }
     }
   }
+
+  return res;
 }
 
 } // namespace jetbrains::renderdoc
