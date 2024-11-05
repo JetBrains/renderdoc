@@ -3,6 +3,8 @@
 #include "RenderDocModel/RdcDebugSession.Generated.h"
 #include "RenderDocModel/RdcDebugStack.Generated.h"
 #include "RenderDocModel/RdcDrawCallDebugSession.Generated.h"
+#include "RenderDocModel/RdcLineBreakpoint.Generated.h"
+#include "util/RenderDocLineBreakpointsMapper.h"
 
 #include <memory>
 
@@ -21,12 +23,15 @@ namespace model {
 class RdcSourceBreakpoint;
 }
 
+struct RdcSourceBreakpointHash {
+  std::size_t operator()(const model::RdcSourceBreakpoint &bp) const noexcept;
+};
+
 struct RenderDocDrawCallDebugSessionData;
 
 class RenderDocDrawCallDebugSession : public model::RdcDrawCallDebugSession  {
-  static const std::wregex FILE_INFO_REGEX;
   std::shared_ptr<RenderDocDrawCallDebugSessionData> data;
-  static rd::Wrapper<model::RdcDebugStack> make_debug_stack(uint32_t step_index, LineColumnInfo const &line_column_info);
+  rd::Wrapper<model::RdcDebugStack> make_debug_stack(uint32_t step_index, LineColumnInfo const &line_column_info) const;
   static std::vector<rd::Wrapper<model::RdcSourceFile>> get_source_files(const ShaderDebugInfo *debug_info);
   static std::vector<rd::Wrapper<model::RdcResourceInfo>> get_resource(const std::shared_ptr<IReplayController> &controller);
 
@@ -40,7 +45,7 @@ public:
   std::vector<rd::Wrapper<model::RdcSourceVariableMapping>> get_source_variables() const;
   std::vector<rd::Wrapper<model::RdcShaderVariableChange>> get_variable_changes() const;
   const ActionDescription *get_action() const;
-  void map_and_add_breakpoints_from_sources(const std::unordered_map<std::wstring, std::vector<model::RdcSourceBreakpoint>> &breakpoints) const;
+  std::vector<model::RdcLineBreakpoint> map_breakpoints_from_sources(const RenderDocLineBreakpointsMapper *mapper, const std::unordered_set<model::RdcSourceBreakpoint, RdcSourceBreakpointHash> &breakpoints) const;
 };
 
 }
