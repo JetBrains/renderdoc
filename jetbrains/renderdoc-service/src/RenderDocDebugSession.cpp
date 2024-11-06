@@ -15,6 +15,7 @@ public:
   const bool is_draw_call_debug;
   const ShaderStage stage;
   const RenderDocReplay * replay;
+  bool was_inside_draw_call = true;
   rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session;
   std::unordered_set<model::RdcSourceBreakpoint, RdcSourceBreakpointHash> source_breakpoints;
 
@@ -35,15 +36,15 @@ std::vector<rd::Wrapper<model::RdcSourceFile>> const & RenderDocDebugSession::ge
 }
 
 void RenderDocDebugSession::step_into() const {
-  navigate_to_next_not_null_stack([&] { return data->draw_call_session->step_into(); });
+  step_to_next_not_null_stack([&] { return data->draw_call_session->step_into(); });
 }
 
 void RenderDocDebugSession::step_over() const {
-  navigate_to_next_not_null_stack([&] { return data->draw_call_session->step_over(); });
+  step_to_next_not_null_stack([&] { return data->draw_call_session->step_over(); });
 }
 
 void RenderDocDebugSession::resume() const {
-  navigate_to_next_not_null_stack([&] { return data->draw_call_session->resume(); }, true);
+  resume_to_next_not_null_stack([&] { return data->draw_call_session->resume(); });
 }
 
 void RenderDocDebugSession::add_breakpoint(uint32_t source_file_index, uint32_t line) const {
@@ -91,21 +92,35 @@ bool RenderDocDebugSession::step_to_next_draw_call() const {
   return false;
 }
 
-void RenderDocDebugSession::navigate_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, bool is_resume) const {
+void RenderDocDebugSession::resume_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func) const {
   rd::Wrapper<model::RdcDebugStack> stack;
   while (!((stack = func()))) {
     if (data->is_draw_call_debug || !step_to_next_draw_call()) {
       get_currentStack().set(rd::Wrapper<model::RdcDebugStack>(nullptr));
       return;
     }
-    if (!is_resume) {
-      get_drawCallSession().set(data->draw_call_session);
-      get_stageInfo().set(rd::Wrapper<model::RdcStageInfo>(nullptr));
-      get_currentStack().set(rd::wrapper::make_wrapper<model::RdcDebugStack>(data->draw_call_session->get_action()->eventId, -1, -1, 0, 0, 0, 0));
-      return;
-    }
   }
 
+  data->was_inside_draw_call = true;
+  get_drawCallSession().set(data->draw_call_session);
+  get_stageInfo().set(rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_variable_changes()));
+  get_currentStack().set(stack);
+}
+
+void RenderDocDebugSession::step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func) const {
+  rd::Wrapper<model::RdcDebugStack> stack;
+  if (!((stack = func()))) {
+    if (data->is_draw_call_debug || !data->was_inside_draw_call && !step_to_next_draw_call()) {
+      get_currentStack().set(rd::Wrapper<model::RdcDebugStack>(nullptr));
+      return;
+    }
+    data->was_inside_draw_call = false;
+    get_drawCallSession().set(data->draw_call_session);
+    get_stageInfo().set(rd::Wrapper<model::RdcStageInfo>(nullptr));
+    get_currentStack().set(rd::wrapper::make_wrapper<model::RdcDebugStack>(data->draw_call_session->get_action()->eventId, -1, -1, 0, 0, 0, 0));
+    return;
+  }
+  data->was_inside_draw_call = true;
   get_drawCallSession().set(data->draw_call_session);
   get_stageInfo().set(rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_variable_changes()));
   get_currentStack().set(stack);
