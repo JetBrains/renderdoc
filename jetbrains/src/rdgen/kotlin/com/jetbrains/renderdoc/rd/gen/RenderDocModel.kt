@@ -113,7 +113,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
         }
 
         val rdcLineBreakpoint = structdef("rdcLineBreakpoint") {
-            field("sourceFileIndex", uint)
+            field("sourceFileIndex", int)
             field("line", uint)
         }
 
@@ -288,6 +288,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
 
         val rdcDrawCallDebugSession = classdef("rdcDrawCallDebugSession") {
             field("debugTrace", rdcDebugTrace)
+            field("disassembly", rdcSourceFile.nullable)
             field("sourceFiles", array(rdcSourceFile))
 
             field("allResources", array(rdcResourceInfo))
@@ -310,8 +311,10 @@ object RenderDocModel : Ext(RenderDocRoot) {
             sink("stepInto", void)
             sink("stepOver", void)
             sink("resume", void)
-            sink("addBreakpoint", rdcSourceBreakpoint)
-            sink("removeBreakpoint", rdcSourceBreakpoint)
+            sink("addLineBreakpoint", rdcLineBreakpoint)
+            sink("addSourceBreakpoint", rdcSourceBreakpoint)
+            sink("removeLineBreakpoint", rdcLineBreakpoint)
+            sink("removeSourceBreakpoint", rdcSourceBreakpoint)
         }
 
         val rdcAction = structdef("rdcAction") {
