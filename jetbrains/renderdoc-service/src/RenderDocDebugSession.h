@@ -28,16 +28,16 @@ public:
   void step_into() const;
   void step_over() const;
   void resume() const;
-  void add_breakpoint(uint32_t source_file_index, uint32_t line) const;
+  void add_breakpoint(int32_t source_file_index, uint32_t line) const;
   void add_source_breakpoint(const rd::Wrapper<model::RdcSourceBreakpoint> &breakpoint) const;
-  void remove_breakpoint(uint32_t source_file_index, uint32_t line) const;
+  void remove_breakpoint(int32_t source_file_index, uint32_t line) const;
   void remove_source_breakpoint(const rd::Wrapper<model::RdcSourceBreakpoint> &breakpoint) const;
   void add_breakpoints_from_sources(const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) const;
 
 private:
   bool step_to_next_draw_call() const;
   void resume_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func) const;
-  void step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func) const;
+  void step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, bool step_over= false) const;
 };
 
 }
