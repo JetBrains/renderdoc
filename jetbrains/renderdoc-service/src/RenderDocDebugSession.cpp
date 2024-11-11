@@ -27,8 +27,10 @@ RenderDocDebugSession::RenderDocDebugSession(const rd::Lifetime& session_lifetim
 :  data(std::make_shared<RenderDocDebugSessionData>(is_draw_call_debug, replay, std::move(draw_call_session), stage)) {
   get_stepInto().advise(session_lifetime, [this] { step_into(); });
   get_stepOver().advise(session_lifetime,[this] { step_over(); });
-  get_addBreakpoint().advise(session_lifetime, [this](const auto& req) { add_source_breakpoint(req); });
-  get_removeBreakpoint().advise(session_lifetime, [this](const auto &req) { remove_source_breakpoint(req); });
+  get_addLineBreakpoint().advise(session_lifetime, [this](const auto& req) { add_breakpoint(-1, req); });
+  get_addSourceBreakpoint().advise(session_lifetime, [this](const auto& req) { add_source_breakpoint(req); });
+  get_removeLineBreakpoint().advise(session_lifetime, [this](const auto &req) { remove_breakpoint(-1, req); });
+  get_removeSourceBreakpoint().advise(session_lifetime, [this](const auto &req) { remove_source_breakpoint(req); });
   get_resume().advise(session_lifetime, [this] { resume(); });
 }
 std::vector<rd::Wrapper<model::RdcSourceFile>> const & RenderDocDebugSession::get_sourceFiles() const {
@@ -40,7 +42,7 @@ void RenderDocDebugSession::step_into() const {
 }
 
 void RenderDocDebugSession::step_over() const {
-  step_to_next_not_null_stack([&] { return data->draw_call_session->step_over(); });
+  step_to_next_not_null_stack([&] { return data->draw_call_session->step_over(); }, true);
 }
 
 void RenderDocDebugSession::resume() const {
@@ -107,9 +109,10 @@ void RenderDocDebugSession::resume_to_next_not_null_stack(const std::function<rd
   get_currentStack().set(stack);
 }
 
-void RenderDocDebugSession::step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func) const {
+void RenderDocDebugSession::step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, bool step_over) const {
   rd::Wrapper<model::RdcDebugStack> stack;
-  if (!((stack = func()))) {
+  const bool go_to_next = step_over && get_currentStack().get()->get_stepIndex() == -1;
+  if (go_to_next || !((stack = func()))) {
     if (data->is_draw_call_debug || !data->was_inside_draw_call && !step_to_next_draw_call()) {
       get_currentStack().set(rd::Wrapper<model::RdcDebugStack>(nullptr));
       return;

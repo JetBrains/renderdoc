@@ -20,7 +20,12 @@ struct RenderDocBreakpoint {
   uint32_t line;
 
   RenderDocBreakpoint(const uint32_t source_file, const uint32_t line) : source_file(source_file), line(line) {}
-  explicit RenderDocBreakpoint(const LineColumnInfo &line_column_info) : source_file(line_column_info.fileIndex), line(line_column_info.lineStart) {}
+  explicit RenderDocBreakpoint(const LineColumnInfo &line_column_info) : source_file(line_column_info.fileIndex) {
+    if (source_file != -1)
+      line = line_column_info.lineStart;
+    else
+      line = line_column_info.disassemblyLine;
+  }
 
   friend std::size_t hash_value(const RenderDocBreakpoint &obj) {
     std::size_t seed = 0x54B49F34;
@@ -86,17 +91,18 @@ struct RenderDocDrawCallDebugSessionData {
   }
 
   [[nodiscard]] bool do_source_step() {
+    const bool is_source_debug = debug_info->sourceDebugInformation;
     auto call_line_info = !calltrace.empty() ? calltrace.top().second.lineInfo : LineColumnInfo();
     auto last_line_info = current_instruction.lineInfo;
     while (do_step()) {
       const auto &line_info = current_instruction.lineInfo;
-      if (!line_info.SourceEqual(last_line_info)) {
-        if (line_info.SourceEqual(call_line_info)) {
+      if (!line_info.SourceEqual(last_line_info) || !is_source_debug && line_info.disassemblyLine != last_line_info.disassemblyLine) {
+        if (line_info.SourceEqual(call_line_info) && (is_source_debug || line_info.disassemblyLine == call_line_info.disassemblyLine)) {
           last_line_info = call_line_info;
           call_line_info = !calltrace.empty() ? calltrace.top().second.lineInfo : LineColumnInfo();
           continue;
         }
-        return line_info.fileIndex >= 0;
+        return is_source_debug ? line_info.fileIndex >= 0 : true;
       }
     }
     return false;
@@ -115,6 +121,13 @@ struct RenderDocDrawCallDebugSessionData {
 
   ~RenderDocDrawCallDebugSessionData() { controller->FreeTrace(trace); }
 };
+
+rd::Wrapper<model::RdcSourceFile> RenderDocDrawCallDebugSession::get_disassembly(const std::shared_ptr<IReplayController> &controller, const ShaderReflection *reflection, const ShaderStage &stage, uint32_t event_id, bool is_source) {
+  if (is_source || !controller || !reflection)
+    return {rd::Wrapper<model::RdcSourceFile>(nullptr)};
+  auto disassembly = controller->DisassembleShader(controller->GetPipelineState().GetShader(stage), reflection, "");
+  return rd::wrapper::make_wrapper<model::RdcSourceFile>(std::to_wstring(event_id), StringUtils::Utf8ToWide(disassembly));
+}
 
 std::vector<rd::Wrapper<model::RdcSourceFile>> RenderDocDrawCallDebugSession::get_source_files(const ShaderDebugInfo *debug_info) {
   std::vector<rd::Wrapper<model::RdcSourceFile>> source_files;
@@ -137,9 +150,10 @@ std::vector<rd::Wrapper<model::RdcResourceInfo>> RenderDocDrawCallDebugSession::
 }
 
 RenderDocDrawCallDebugSession::RenderDocDrawCallDebugSession(const ActionDescription* action, const std::shared_ptr<IReplayController> &controller, ShaderDebugTrace *trace, const ShaderDebugInfo *debug_info, const ShaderReflection *reflection)
-    :  RdcDrawCallDebugSession(RenderDocConverterUtils::convertDebugTrace(*trace), get_source_files(debug_info), get_resource(controller), RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadOnlyResources(trace->stage)),
-      RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadWriteResources(trace->stage)), RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetSamplers(trace->stage)),
-      RenderDocConverterUtils::convertShaderReflection(reflection)), data(std::make_shared<RenderDocDrawCallDebugSessionData>(action, trace, controller, debug_info)) {
+    :  RdcDrawCallDebugSession(RenderDocConverterUtils::convertDebugTrace(*trace), get_disassembly(controller, reflection, trace->stage, action->eventId, debug_info->sourceDebugInformation), get_source_files(debug_info), get_resource(controller),
+      RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadOnlyResources(trace->stage)), RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadWriteResources(trace->stage)),
+      RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetSamplers(trace->stage)), RenderDocConverterUtils::convertShaderReflection(reflection)),
+      data(std::make_shared<RenderDocDrawCallDebugSessionData>(action, trace, controller, debug_info)) {
 }
 
 rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_into() const {
@@ -150,6 +164,9 @@ rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_into() con
 }
 
 rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::make_debug_stack(const uint32_t step_index, LineColumnInfo const &line_column_info) const {
+  const auto is_source_debug = data->debug_info->sourceDebugInformation;
+  if (!is_source_debug && line_column_info.fileIndex == -1)
+    return rd::wrapper::make_wrapper<model::RdcDebugStack>(get_action()->eventId, step_index, line_column_info.fileIndex, line_column_info.disassemblyLine, line_column_info.disassemblyLine, 0, 0);
   return rd::wrapper::make_wrapper<model::RdcDebugStack>(get_action()->eventId, step_index, line_column_info.fileIndex, line_column_info.lineStart, line_column_info.lineEnd, line_column_info.colStart, line_column_info.colEnd);
 }
 

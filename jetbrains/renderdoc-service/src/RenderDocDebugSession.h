@@ -37,7 +37,7 @@ public:
 private:
   bool step_to_next_draw_call() const;
   void resume_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func) const;
-  void step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func) const;
+  void step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, bool step_over= false) const;
 };
 
 }

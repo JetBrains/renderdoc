@@ -8,6 +8,7 @@
 
 #include <memory>
 
+enum class ShaderStage : uint8_t;
 class ActionDescription;
 struct ShaderReflection;
 struct IReplayController;
@@ -32,6 +33,7 @@ struct RenderDocDrawCallDebugSessionData;
 class RenderDocDrawCallDebugSession : public model::RdcDrawCallDebugSession  {
   std::shared_ptr<RenderDocDrawCallDebugSessionData> data;
   rd::Wrapper<model::RdcDebugStack> make_debug_stack(uint32_t step_index, LineColumnInfo const &line_column_info) const;
+  static rd::Wrapper<model::RdcSourceFile> get_disassembly(const std::shared_ptr<IReplayController> &controller, const ShaderReflection *reflection, const ShaderStage &stage, uint32_t event_id, bool is_source);
   static std::vector<rd::Wrapper<model::RdcSourceFile>> get_source_files(const ShaderDebugInfo *debug_info);
   static std::vector<rd::Wrapper<model::RdcResourceInfo>> get_resource(const std::shared_ptr<IReplayController> &controller);
 
