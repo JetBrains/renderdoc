@@ -26,6 +26,16 @@ public:
     return v;
   }
 
+
+  template <typename T>
+  inline static std::vector<T> CopyToVector(const rdcarray<T> &arr) {
+    std::vector<T> v(arr.size());
+    for (std::size_t i = 0; i < arr.size(); i++) {
+      v[i] = arr[i];
+    }
+    return v;
+  }
+
   ArrayUtils() = delete;
 
 };

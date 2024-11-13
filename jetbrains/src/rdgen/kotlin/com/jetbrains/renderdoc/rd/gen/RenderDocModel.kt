@@ -325,9 +325,17 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("children", array(this))
         }
 
+        val rdcWindowOutputData = structdef("rdcWindowOutputData") {
+            field("width", int)
+            field("height", int)
+            field("buffer", array(byte))
+        }
+
         val rdcCapture = classdef("rdcCapture") {
             field("api", rdcGraphicsApi)
             field("rootActions", array(rdcAction))
+
+            callback("getTextureRGBBuffer", uint, array(rdcWindowOutputData))
 
             callback("debugVertex", uint, rdcDebugSession)
             callback("debugPixel", uint, rdcDebugSession)
