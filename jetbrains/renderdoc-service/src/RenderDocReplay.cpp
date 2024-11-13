@@ -1,5 +1,7 @@
 #include "RenderDocReplay.h"
 
+#include "RenderDocTexturePreviewService.h"
+#include "util/ArrayUtils.h"
 #include "util/RenderDocActionHelpers.h"
 
 #include <api/replay/renderdoc_replay.h>
@@ -29,7 +31,8 @@ model::RdcGraphicsApi get_graphics_api(IReplayController *controller) {
 
 }
 
-RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{replay::helpers::get_graphics_api(controller), replay::helpers::get_root_actions(controller)}, controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(std::make_shared<RenderDocLineBreakpointsMapper>()) {
+RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{replay::helpers::get_graphics_api(controller), replay::helpers::get_root_actions(controller)},
+controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(std::make_shared<RenderDocLineBreakpointsMapper>()), texture_previewer(std::make_shared<RenderDocTexturePreviewService>(controller)) {
   get_debugVertex().set([this](const rd::Lifetime& lifetime, const auto& req) {
     return debug_vertex(lifetime, req);
   });
@@ -42,6 +45,21 @@ RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{rep
   get_tryDebugPixel().set([this](const rd::Lifetime& lifetime, const auto& req) {
     return try_debug_pixel(lifetime, req);
   });
+  get_getTextureRGBBuffer().set([this](const rd::Lifetime& lifetime, const auto& req) {
+    return get_textureRGBBuffer(lifetime, req);
+  });
+}
+
+[[nodiscard]] std::vector<rd::Wrapper<model::RdcWindowOutputData>> RenderDocReplay::get_textureRGBBuffer(const rd::Lifetime &session_lifetime, uint32_t event_id) const {
+  const auto event = helpers::find_action(controller->GetRootActions().begin(), [event_id](const ActionDescription &a) {
+    const auto next = helpers::get_next_action(&a);
+    return a.eventId <= event_id && (next ? next->eventId > event_id : true);
+  });
+  if (!event)
+    return {};
+  controller->SetFrameEvent(event->eventId, true);
+  const rdcarray<Descriptor> out_targets = controller->GetPipelineState().GetOutputTargets();
+  return texture_previewer->get_buffers(event->eventId, out_targets);
 }
 
 rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const uint32_t event_id) const  {
