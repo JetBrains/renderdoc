@@ -21,12 +21,12 @@ class RenderDocTexturePreviewService {
   };
 
   IReplayController *controller;
-  std::unordered_map<uint32_t, Dimensions> thumbnails_dimension_cache;
-  std::unordered_map<uint32_t, std::vector<std::size_t>> outputs_indices_cache;
+  std::unordered_map<uint32_t, std::unordered_map<std::size_t, Dimensions>> outputs_dimensions_cache;
+  std::unordered_map<uint32_t, Dimensions> max_dimensions;
 
   void calculate_dimensions(uint32_t event_id, const rdcarray<Descriptor> &outputs);
-  int32_t get_width(uint32_t event_id) const;
-  int32_t get_height(uint32_t event_id) const;
+  int32_t get_width(uint32_t event_id, std::size_t output_index) const;
+  int32_t get_height(uint32_t event_id, std::size_t output_index) const;
 
 public:
   explicit RenderDocTexturePreviewService(IReplayController *controller);
