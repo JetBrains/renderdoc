@@ -23,8 +23,8 @@ public:
   : is_draw_call_debug(is_draw_call), stage(stage), replay(replay), draw_call_session(std::move(draw_call_session)), source_breakpoints({}) {}
 };
 
-RenderDocDebugSession::RenderDocDebugSession(const rd::Lifetime& session_lifetime, const RenderDocReplay *replay, rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session, const ShaderStage &stage, bool is_draw_call_debug)
-:  data(std::make_shared<RenderDocDebugSessionData>(is_draw_call_debug, replay, std::move(draw_call_session), stage)) {
+RenderDocDebugSession::RenderDocDebugSession(const rd::Lifetime& session_lifetime, const RenderDocReplay *replay, rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session, const ShaderStage &stage, DebugInput input, bool is_draw_call_debug)
+:  input(input), data(std::make_shared<RenderDocDebugSessionData>(is_draw_call_debug, replay, std::move(draw_call_session), stage)) {
   get_stepInto().advise(session_lifetime, [this] { step_into(); });
   get_stepOver().advise(session_lifetime,[this] { step_over(); });
   get_addLineBreakpoint().advise(session_lifetime, [this](const auto& req) { add_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
@@ -81,7 +81,7 @@ bool RenderDocDebugSession::step_to_next_draw_call() const {
   const ActionDescription * action = data->draw_call_session->get_action();
 
   while ((action = helpers::find_action(helpers::get_next_action(action), helpers::is_draw_call))) {
-    if (const auto next_session = data->stage == ShaderStage::Vertex ? data->replay->start_debug_vertex(action) : data->replay->start_debug_pixel(action)) {
+    if (const auto next_session = data->stage == ShaderStage::Vertex ? data->replay->start_debug_vertex(action) : data->replay->start_debug_pixel(action, input)) {
       data->draw_call_session = next_session;
       for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), data->source_breakpoints)) {
         add_breakpoint(bp.get_sourceFileIndex(), bp.get_line());

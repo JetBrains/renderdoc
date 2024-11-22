@@ -63,31 +63,35 @@ controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(
 }
 
 rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const uint32_t event_id) const  {
+  constexpr DebugInput debug_input = {0};
   const auto action = helpers::find_action(controller->GetRootActions().begin(), [&event_id](const ActionDescription &a){ return a.eventId == event_id; });
-  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_vertex(action), ShaderStage::Vertex, true);
+  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_vertex(action), ShaderStage::Vertex, debug_input, true);
   session->step_into();
   return session;
 }
 
-rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_pixel(const rd::Lifetime &session_lifetime, const uint32_t event_id) const  {
-  const auto action = helpers::find_action(controller->GetRootActions().begin(), [&event_id](const ActionDescription &a){ return a.eventId == event_id; });
-  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_pixel(action), ShaderStage::Pixel, true);
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_pixel(const rd::Lifetime &session_lifetime, const model::RdcDebugPixelInput &input) const  {
+  const DebugInput debug_input = {input.get_x(), input.get_y()};
+  const auto action = helpers::find_action(controller->GetRootActions().begin(), [event_id = input.get_eventId()](const ActionDescription &a){ return a.eventId == event_id; });
+  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_pixel(action, debug_input), ShaderStage::Pixel, debug_input, true);
   session->step_into();
   return session;
 }
 
 rd::Wrapper<RenderDocDebugSession> RenderDocReplay::try_debug_vertex(const rd::Lifetime &session_lifetime, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) const {
+  constexpr DebugInput debug_input = {0};
   const ActionDescription *action = helpers::find_action(controller->GetRootActions().begin(), helpers::is_draw_call);
-  auto&&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_vertex(action), ShaderStage::Vertex, false);
+  auto&&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_vertex(action), ShaderStage::Vertex, debug_input, false);
   session->add_breakpoints_from_sources(breakpoints);
   session->resume();
   return session;
 }
 
-rd::Wrapper<RenderDocDebugSession> RenderDocReplay::try_debug_pixel(const rd::Lifetime &session_lifetime, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) const {
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::try_debug_pixel(const rd::Lifetime &session_lifetime, const model::RdcDebugPixelInput &input) const {
+  const DebugInput debug_input = {input.get_x(), input.get_y()};
   const auto action = helpers::find_action(controller->GetRootActions().begin(), helpers::is_draw_call);
-  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_pixel(action), ShaderStage::Pixel, false);
-  session->add_breakpoints_from_sources(breakpoints);
+  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_pixel(action, debug_input), ShaderStage::Pixel, debug_input, false);
+  session->add_breakpoints_from_sources(input.get_breakpoints());
   session->resume();
   return session;
 }
@@ -104,13 +108,13 @@ rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_vertex(c
   return drawCallSession;
 }
 
-rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_pixel(const ActionDescription *action) const {
+rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_pixel(const ActionDescription *action, DebugInput input) const {
   controller->SetFrameEvent(action->eventId, true);
 
   const auto &pipeline = controller->GetPipelineState();
   const ShaderReflection * shader = pipeline.GetShaderReflection(ShaderStage::Pixel);
   const DebugPixelInputs inputs;
-  ShaderDebugTrace *trace = controller->DebugPixel(400, 400, inputs);
+  ShaderDebugTrace *trace = controller->DebugPixel(input.pixel.x, input.pixel.y, inputs);
   if (trace == nullptr)
     return rd::Wrapper<RenderDocDrawCallDebugSession>(nullptr);
   const auto &drawCallSession = rd::wrapper::make_wrapper<RenderDocDrawCallDebugSession>(action, controller, trace, &shader->debugInfo, shader);

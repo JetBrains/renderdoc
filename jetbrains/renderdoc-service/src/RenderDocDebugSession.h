@@ -19,11 +19,22 @@ class RenderDocReplay;
 
 class RenderDocDebugSessionData;
 
+struct DebugInput {
+  union {
+    struct {
+      uint32_t x;
+      uint32_t y;
+    } pixel;
+    uint32_t vertex_id;
+  };
+};
+
 class RenderDocDebugSession : public model::RdcDebugSession  {
+  const DebugInput input;
   std::shared_ptr<RenderDocDebugSessionData> data;
 
 public:
-  RenderDocDebugSession(const rd::Lifetime& session_lifetime, const RenderDocReplay *replay, rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session, const ShaderStage &stage, bool is_draw_call_debug);
+  RenderDocDebugSession(const rd::Lifetime& session_lifetime, const RenderDocReplay *replay, rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session, const ShaderStage &stage, DebugInput input, bool is_draw_call_debug);
   std::vector<rd::Wrapper<model::RdcSourceFile>> const & get_sourceFiles() const;
   void step_into() const;
   void step_over() const;
