@@ -331,6 +331,13 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("buffer", array(byte))
         }
 
+        val rdcDebugPixelInput = structdef("rdcDebugPixelInput") {
+            field("eventId", uint)
+            field("x", uint)
+            field("y", uint)
+            field("breakpoints", immutableList(rdcSourceBreakpoint))
+        }
+
         val rdcCapture = classdef("rdcCapture") {
             field("api", rdcGraphicsApi)
             field("rootActions", array(rdcAction))
@@ -338,9 +345,9 @@ object RenderDocModel : Ext(RenderDocRoot) {
             callback("getTextureRGBBuffer", uint, array(rdcWindowOutputData))
 
             callback("debugVertex", uint, rdcDebugSession)
-            callback("debugPixel", uint, rdcDebugSession)
+            callback("debugPixel", rdcDebugPixelInput, rdcDebugSession)
             callback("tryDebugVertex", immutableList(rdcSourceBreakpoint), rdcDebugSession)
-            callback("tryDebugPixel", immutableList(rdcSourceBreakpoint), rdcDebugSession)
+            callback("tryDebugPixel", rdcDebugPixelInput, rdcDebugSession)
         }
 
         val rdcCaptureFile = classdef("rdcCaptureFile") {
