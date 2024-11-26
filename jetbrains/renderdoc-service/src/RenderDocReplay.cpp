@@ -58,8 +58,7 @@ controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(
   if (!event)
     return {};
   controller->SetFrameEvent(event->eventId, true);
-  const rdcarray<Descriptor> out_targets = controller->GetPipelineState().GetOutputTargets();
-  return texture_previewer->get_buffers(event->eventId, out_targets);
+  return texture_previewer->get_buffers(event);
 }
 
 rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const uint32_t event_id) const  {
