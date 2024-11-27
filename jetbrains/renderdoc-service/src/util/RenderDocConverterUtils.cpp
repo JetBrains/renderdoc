@@ -29,10 +29,6 @@ rd::Wrapper<model::RdcDebugTrace> RenderDocConverterUtils::convertDebugTrace(con
     ArrayUtils::CopyToVector(trace.readWriteResources, convertShaderVariable), ArrayUtils::CopyToVector(trace.samplers, convertShaderVariable), ArrayUtils::CopyToVector(trace.sourceVars, convertSourceMapping));
 }
 
-rd::Wrapper<model::RdcShaderVariableChange> RenderDocConverterUtils::convertVariableChange(const ShaderVariableChange &change) {
-  return model::RdcShaderVariableChange(convertShaderVariable(change.before), convertShaderVariable(change.after));
-}
-
 rd::Wrapper<model::RdcUsedDescriptor> RenderDocConverterUtils::convertDescriptor(const UsedDescriptor &r) {
   const rd::Wrapper<model::RdcDescriptorAccess> access = model::RdcDescriptorAccess(static_cast<model::RdcDescriptorType>(r.access.type), r.access.index, r.access.arrayElement);
   if (const auto resource = r.descriptor.resource; resource == ResourceId::Null())
