@@ -105,7 +105,7 @@ void RenderDocDebugSession::resume_to_next_not_null_stack(const std::function<rd
 
   data->was_inside_draw_call = true;
   get_drawCallSession().set(data->draw_call_session);
-  get_stageInfo().set(rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_variable_changes()));
+  get_stageInfo().set(rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_updated_variables()));
   get_currentStack().set(stack);
 }
 
@@ -125,7 +125,7 @@ void RenderDocDebugSession::step_to_next_not_null_stack(const std::function<rd::
   }
   data->was_inside_draw_call = true;
   get_drawCallSession().set(data->draw_call_session);
-  get_stageInfo().set(rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_variable_changes()));
+  get_stageInfo().set(rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_updated_variables()));
   get_currentStack().set(stack);
 }
 

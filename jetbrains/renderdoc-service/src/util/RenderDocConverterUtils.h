@@ -16,7 +16,6 @@ struct RenderDocConverterUtils {
   static rd::Wrapper<model::RdcDebugVariableReference> convertVariableReference(const DebugVariableReference &ref);
   static rd::Wrapper<model::RdcSourceVariableMapping> convertSourceMapping(const SourceVariableMapping &mapping);
   static rd::Wrapper<model::RdcDebugTrace> convertDebugTrace(const ShaderDebugTrace &trace);
-  static rd::Wrapper<model::RdcShaderVariableChange> convertVariableChange(const ShaderVariableChange &change);
   static std::vector<rd::Wrapper<model::RdcUsedDescriptor>> convertResources(const rdcarray<UsedDescriptor> &resources);
   static rd::Wrapper<model::RdcShaderReflection> convertShaderReflection(const ShaderReflection *shader);
 private:

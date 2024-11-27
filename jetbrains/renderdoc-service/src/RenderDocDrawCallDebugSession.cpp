@@ -53,6 +53,7 @@ struct RenderDocDrawCallDebugSessionData {
   ShaderDebugState *current_state = states.begin();
   InstructionSourceInfo current_instruction;
   std::stack<std::pair<size_t, InstructionSourceInfo>> calltrace;
+  std::unordered_map<std::string, ShaderVariable> variables;
   std::unordered_set<RenderDocBreakpoint, RenderDocBreakpoint::hash> breakpoints;
   std::unordered_map<model::RdcSourceBreakpoint, std::vector<model::RdcLineBreakpoint>, RdcSourceBreakpointHash> breakpoints_mapping;
   size_t current_callstack_size;
@@ -102,7 +103,16 @@ struct RenderDocDrawCallDebugSessionData {
           call_line_info = !calltrace.empty() ? calltrace.top().second.lineInfo : LineColumnInfo();
           continue;
         }
-        return is_source_debug ? line_info.fileIndex >= 0 : true;
+        if (!is_source_debug || line_info.fileIndex >= 0) {
+          for (const auto &[before, after] : current_state->changes) {
+            const auto old_name = std::string(before.name.c_str());
+            variables.erase(old_name);
+            const auto new_name = std::string(after.name.c_str());
+            variables.emplace(new_name, after);
+          }
+          return true;
+        }
+        break;
       }
     }
     return false;
@@ -200,8 +210,13 @@ std::vector<rd::Wrapper<model::RdcSourceVariableMapping>> RenderDocDrawCallDebug
 }
 
 
-std::vector<rd::Wrapper<model::RdcShaderVariableChange>> RenderDocDrawCallDebugSession::get_variable_changes() const {
-  return ArrayUtils::CopyToVector(data->current_state->changes, RenderDocConverterUtils::convertVariableChange);
+std::vector<rd::Wrapper<model::RdcShaderVariable>> RenderDocDrawCallDebugSession::get_updated_variables() const {
+  std::vector<rd::Wrapper<model::RdcShaderVariable>> result(data->variables.size());
+  std::size_t i = 0;
+  for (const auto &[_, variable] : data->variables) {
+    result[i++] = RenderDocConverterUtils::convertShaderVariable(variable);
+  }
+  return result;
 }
 
 const ActionDescription *RenderDocDrawCallDebugSession::get_action() const { return data->action; }

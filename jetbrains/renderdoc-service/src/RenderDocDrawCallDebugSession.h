@@ -45,7 +45,7 @@ public:
   void add_breakpoint(int32_t source_file_index, uint32_t line) const;
   void remove_breakpoint(int32_t source_file_index, uint32_t line) const;
   std::vector<rd::Wrapper<model::RdcSourceVariableMapping>> get_source_variables() const;
-  std::vector<rd::Wrapper<model::RdcShaderVariableChange>> get_variable_changes() const;
+  std::vector<rd::Wrapper<model::RdcShaderVariable>> get_updated_variables() const;
   const ActionDescription *get_action() const;
   std::vector<model::RdcLineBreakpoint> map_breakpoints_from_sources(const RenderDocLineBreakpointsMapper *mapper, const std::unordered_set<model::RdcSourceBreakpoint, RdcSourceBreakpointHash> &breakpoints) const;
 };

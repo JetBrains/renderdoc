@@ -199,7 +199,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
 
         val rdcStageInfo = structdef("rdcStageInfo") {
             field("currentVariables", array(rdcSourceVariableMapping))
-            field("variableChanges", array(rdcShaderVariableChange))
+            field("availableVariable", array(rdcShaderVariable))
         }
 
         val rdcShaderSampler = structdef("rdcShaderSampler") {
