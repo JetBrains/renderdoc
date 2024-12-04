@@ -201,7 +201,8 @@ val buildRenderDocHostUnsigned by tasks.registering(Task::class) {
     val cmakeBuildDir = "cmake-build-${cmakeConfig.lowercase()}"
     val binDirPath = Path("..", cmakeBuildDir, "bin")
     val binaryPath = binDirPath.resolve(binaryName.get())
-    val isWindows = hostOs.get().isWindows
+    val os = hostOs.get()
+    val isWindows = os.isWindows
 
     doFirst {
         val platformArch = platformArchitecture.get()
@@ -220,6 +221,10 @@ val buildRenderDocHostUnsigned by tasks.registering(Task::class) {
             "-DENABLE_PCH_HEADERS:BOOL=OFF",
             "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_${cmakeConfig.uppercase()}=${project.projectDir.toPath().resolve(binDirPath).normalize()}"
         )
+
+        if (os.isMacOsX) {
+            generateCommandLine.add("-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_${cmakeConfig.uppercase()}=${project.projectDir.toPath().resolve(binDirPath).normalize()}")
+        }
         if (isCrossCompile) {
             generateCommandLine.add("-DCMAKE_TOOLCHAIN_FILE=${hostOs.get().asSlug()}-${platformArch.asSlug()}-${targetArch.asSlug()}-toolchain.cmake")
         } else {
@@ -261,9 +266,13 @@ val buildRenderDocHostUnsigned by tasks.registering(Task::class) {
 
     outputs.upToDateWhen { false }
     outputs.file(binaryPath)
-    runIf(isWindows) {
-        outputs.file(binaryPath.parent.resolve("renderdoc.dll"))
-    }
+    outputs.file(binaryPath.parent.resolve(
+        when {
+            os.isWindows -> "renderdoc.dll"
+            os.isMacOsX -> "librenderdoc.dylib"
+            else -> "librenderdoc.so"
+        }
+    ))
 }
 
 val buildRenderDocHost by tasks.registering(Task::class) {
