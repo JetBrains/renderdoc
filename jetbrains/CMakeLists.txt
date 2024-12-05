@@ -19,7 +19,8 @@ if (RD_FETCH_PATH STREQUAL "")
     FetchContent_Declare(
             rd
             GIT_REPOSITORY https://github.com/JetBrains/rd.git
-            GIT_TAG        ${RD_VERSION}
+            // can be changed to release version when commit 6b4d468790517019b9aff741751bc0d4c65508f7 will occur in next one
+            GIT_TAG        6b4d468790517019b9aff741751bc0d4c65508f7
             GIT_SHALLOW    ON
     )
 else ()
