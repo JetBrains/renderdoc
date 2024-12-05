@@ -27,9 +27,9 @@ RenderDocDebugSession::RenderDocDebugSession(const rd::Lifetime& session_lifetim
 :  data(std::make_shared<RenderDocDebugSessionData>(is_draw_call_debug, replay, std::move(draw_call_session), stage)) {
   get_stepInto().advise(session_lifetime, [this] { step_into(); });
   get_stepOver().advise(session_lifetime,[this] { step_over(); });
-  get_addLineBreakpoint().advise(session_lifetime, [this](const auto& req) { add_breakpoint(-1, req); });
+  get_addLineBreakpoint().advise(session_lifetime, [this](const auto& req) { add_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
   get_addSourceBreakpoint().advise(session_lifetime, [this](const auto& req) { add_source_breakpoint(req); });
-  get_removeLineBreakpoint().advise(session_lifetime, [this](const auto &req) { remove_breakpoint(-1, req); });
+  get_removeLineBreakpoint().advise(session_lifetime, [this](const auto &req) { remove_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
   get_removeSourceBreakpoint().advise(session_lifetime, [this](const auto &req) { remove_source_breakpoint(req); });
   get_resume().advise(session_lifetime, [this] { resume(); });
 }
@@ -49,7 +49,7 @@ void RenderDocDebugSession::resume() const {
   resume_to_next_not_null_stack([&] { return data->draw_call_session->resume(); });
 }
 
-void RenderDocDebugSession::add_breakpoint(uint32_t source_file_index, uint32_t line) const {
+void RenderDocDebugSession::add_breakpoint(int32_t source_file_index, uint32_t line) const {
   data->draw_call_session->add_breakpoint(source_file_index, line);
 }
 
@@ -62,7 +62,7 @@ void RenderDocDebugSession::add_source_breakpoint(const rd::Wrapper<model::RdcSo
   }
 }
 
-void RenderDocDebugSession::remove_breakpoint(uint32_t source_file_index, uint32_t line) const {
+void RenderDocDebugSession::remove_breakpoint(int32_t source_file_index, uint32_t line) const {
   data->draw_call_session->remove_breakpoint(source_file_index, line);
 }
 
