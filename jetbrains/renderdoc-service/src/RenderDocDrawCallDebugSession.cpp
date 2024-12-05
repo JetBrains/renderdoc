@@ -16,10 +16,10 @@ std::size_t RdcSourceBreakpointHash::operator()(const model::RdcSourceBreakpoint
 }
 
 struct RenderDocBreakpoint {
-  uint32_t source_file;
+  int32_t source_file;
   uint32_t line;
 
-  RenderDocBreakpoint(const uint32_t source_file, const uint32_t line) : source_file(source_file), line(line) {}
+  RenderDocBreakpoint(const int32_t source_file, const uint32_t line) : source_file(source_file), line(line) {}
   explicit RenderDocBreakpoint(const LineColumnInfo &line_column_info) : source_file(line_column_info.fileIndex) {
     if (source_file != -1)
       line = line_column_info.lineStart;
@@ -206,11 +206,11 @@ std::vector<rd::Wrapper<model::RdcShaderVariableChange>> RenderDocDrawCallDebugS
 
 const ActionDescription *RenderDocDrawCallDebugSession::get_action() const { return data->action; }
 
-void RenderDocDrawCallDebugSession::add_breakpoint(uint32_t source_file_index, uint32_t line) const {
+void RenderDocDrawCallDebugSession::add_breakpoint(int32_t source_file_index, uint32_t line) const {
   data->breakpoints.emplace(source_file_index, line);
 }
 
-void RenderDocDrawCallDebugSession::remove_breakpoint(uint32_t source_file_index, uint32_t line) const {
+void RenderDocDrawCallDebugSession::remove_breakpoint(int32_t source_file_index, uint32_t line) const {
   const auto& it = data->breakpoints.find(RenderDocBreakpoint(source_file_index, line));
   if (it != data->breakpoints.end())
     data->breakpoints.erase(it);

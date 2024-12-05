@@ -28,9 +28,9 @@ public:
   void step_into() const;
   void step_over() const;
   void resume() const;
-  void add_breakpoint(uint32_t source_file_index, uint32_t line) const;
+  void add_breakpoint(int32_t source_file_index, uint32_t line) const;
   void add_source_breakpoint(const rd::Wrapper<model::RdcSourceBreakpoint> &breakpoint) const;
-  void remove_breakpoint(uint32_t source_file_index, uint32_t line) const;
+  void remove_breakpoint(int32_t source_file_index, uint32_t line) const;
   void remove_source_breakpoint(const rd::Wrapper<model::RdcSourceBreakpoint> &breakpoint) const;
   void add_breakpoints_from_sources(const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) const;
 

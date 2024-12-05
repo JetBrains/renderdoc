@@ -42,8 +42,8 @@ public:
   rd::Wrapper<model::RdcDebugStack> step_into() const;
   rd::Wrapper<model::RdcDebugStack> step_over() const;
   rd::Wrapper<model::RdcDebugStack> resume() const;
-  void add_breakpoint(uint32_t source_file_index, uint32_t line) const;
-  void remove_breakpoint(uint32_t source_file_index, uint32_t line) const;
+  void add_breakpoint(int32_t source_file_index, uint32_t line) const;
+  void remove_breakpoint(int32_t source_file_index, uint32_t line) const;
   std::vector<rd::Wrapper<model::RdcSourceVariableMapping>> get_source_variables() const;
   std::vector<rd::Wrapper<model::RdcShaderVariableChange>> get_variable_changes() const;
   const ActionDescription *get_action() const;

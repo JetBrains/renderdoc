@@ -3,6 +3,7 @@ import com.jetbrains.rd.framework.protocolOrThrow
 import com.jetbrains.rd.util.lifetime.Lifetime
 import com.jetbrains.rd.util.lifetime.waitTermination
 import com.jetbrains.rd.util.reactive.fire
+import com.jetbrains.rd.util.reactive.valueOrThrow
 import com.jetbrains.rd.util.threading.coroutines.adviseSuspend
 import com.jetbrains.rd.util.threading.coroutines.asCoroutineDispatcher
 import com.jetbrains.rd.util.threading.coroutines.createTerminatedAfter
@@ -29,7 +30,7 @@ class RenderDocClientTest {
         val debugSession = withContext(rdDispatcher) {
             capture.debugVertex.startSuspending(sessionLifetime, eventId)
         }
-        assertEquals("triangle.vert", Path(debugSession.sourceFiles[0].name).name)
+        assertEquals("triangle.vert", Path(debugSession.drawCallSession.valueOrThrow.sourceFiles[0].name).name)
 
         val lineNumbers = mutableListOf<UInt>()
         withContext(rdDispatcher) {
@@ -68,11 +69,11 @@ class RenderDocClientTest {
                     sessionLifetime.terminate()
                 }
             }
-            debugSession.addBreakpoint.fire(RdcLineBreakpoint(0u, 22u))
-            debugSession.addBreakpoint.fire(RdcLineBreakpoint(0u, 27u))
+            debugSession.addLineBreakpoint.fire(RdcLineBreakpoint(0u, 22u))
+            debugSession.addLineBreakpoint.fire(RdcLineBreakpoint(0u, 27u))
             debugSession.resume.fire()
             debugSession.resume.fire()
-            debugSession.removeBreakpoint.fire(RdcLineBreakpoint(0u, 27u))
+            debugSession.removeLineBreakpoint.fire(RdcLineBreakpoint(0u, 27u))
             debugSession.resume.fire()
             debugSession.resume.fire()
             debugSession.resume.fire()
