@@ -148,7 +148,8 @@ val generateModel by tasks.registering(RdGenTask::class) {
 
     copy {
         from("templates/Directory.Build.props", "templates/CMake.Variables.cmake")
-        filter<ReplaceTokens>("tokens" to mapOf("RD_VERSION" to rdVersion))
+        // RD_FETCH_COMMIT can be replaced with RD_VERSION when commit 6b4d468790517019b9aff741751bc0d4c65508f7 will occur in next one
+        filter<ReplaceTokens>("tokens" to mapOf("RD_VERSION" to "2024.3.1", "RD_FETCH_COMMIT" to "6b4d468790517019b9aff741751bc0d4c65508f7"))
         into(".")
     }
 }
