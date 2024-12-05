@@ -15,11 +15,11 @@ ENDIF()
 set(RD_FETCH_PATH "" CACHE STRING "Local RD fetch path")
 
 if (RD_FETCH_PATH STREQUAL "")
-    message(STATUS "Fetch RD ${RD_VERSION} from GitHub")
+    message(STATUS "Fetch RD ${RD_FETCH_COMMIT} from GitHub")
     FetchContent_Declare(
             rd
             GIT_REPOSITORY https://github.com/JetBrains/rd.git
-            GIT_TAG        ${RD_VERSION}
+            GIT_TAG        ${RD_FETCH_COMMIT}
             GIT_SHALLOW    ON
     )
 else ()
