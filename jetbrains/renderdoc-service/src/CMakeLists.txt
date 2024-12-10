@@ -3,14 +3,23 @@ add_library(RenderDocService STATIC
         RenderDocService.h
         RenderDocReplay.cpp
         RenderDocReplay.h
+        util/RenderDocConverterUtils.h
+        util/RenderDocConverterUtils.cpp
         RenderDocDebugSession.cpp
         RenderDocDebugSession.h
+        RenderDocDrawCallDebugSession.cpp
+        RenderDocDrawCallDebugSession.h
         util/StringUtils.cpp
         util/StringUtils.h
+        util/ArrayUtils.h
+        util/RenderDocActionHelpers.cpp
+        util/RenderDocActionHelpers.h
         RenderDocEvent.cpp
         RenderDocEvent.h
         RenderDocFile.cpp
         RenderDocFile.h
+        util/RenderDocLineBreakpointsMapper.cpp
+        util/RenderDocLineBreakpointsMapper.h
 )
 
 if (ENABLE_PCH_HEADERS)
