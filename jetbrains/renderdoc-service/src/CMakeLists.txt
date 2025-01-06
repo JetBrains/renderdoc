@@ -22,6 +22,10 @@ add_library(RenderDocService STATIC
         util/RenderDocLineBreakpointsMapper.h
         RenderDocTexturePreviewService.cpp
         RenderDocTexturePreviewService.h
+        RenderDocVertexResolver.cpp
+        RenderDocVertexResolver.h
+        RenderDocMeshPreviewService.cpp
+        RenderDocMeshPreviewService.h
 )
 
 if (ENABLE_PCH_HEADERS)
