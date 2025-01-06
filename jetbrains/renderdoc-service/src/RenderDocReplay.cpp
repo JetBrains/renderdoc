@@ -1,5 +1,6 @@
 #include "RenderDocReplay.h"
 
+#include "RenderDocMeshPreviewService.h"
 #include "RenderDocTexturePreviewService.h"
 #include "util/ArrayUtils.h"
 #include "util/RenderDocActionHelpers.h"
@@ -32,7 +33,8 @@ model::RdcGraphicsApi get_graphics_api(IReplayController *controller) {
 }
 
 RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{replay::helpers::get_graphics_api(controller), replay::helpers::get_root_actions(controller)},
-controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(std::make_shared<RenderDocLineBreakpointsMapper>()), texture_previewer(std::make_shared<RenderDocTexturePreviewService>(controller)) {
+controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(std::make_shared<RenderDocLineBreakpointsMapper>()),
+texture_previewer(std::make_shared<RenderDocTexturePreviewService>(controller)), mesh_previewer(std::make_shared<RenderDocMeshPreviewService>(controller)) {
   get_debugVertex().set([this](const rd::Lifetime& lifetime, const auto& req) {
     return debug_vertex(lifetime, req);
   });
@@ -48,6 +50,9 @@ controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(
   get_getTextureRGBBuffer().set([this](const rd::Lifetime& lifetime, const auto& req) {
     return get_textureRGBBuffer(lifetime, req);
   });
+  get_getVertexShaderInOutputs().set([this](const rd::Lifetime& lifetime, const auto& req) {
+    return get_vertices_inoutputs(lifetime, req);
+  });
 }
 
 [[nodiscard]] std::vector<rd::Wrapper<model::RdcWindowOutputData>> RenderDocReplay::get_textureRGBBuffer(const rd::Lifetime &session_lifetime, uint32_t event_id) const {
@@ -59,6 +64,17 @@ controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(
     return {};
   controller->SetFrameEvent(event->eventId, true);
   return texture_previewer->get_buffers(event);
+}
+
+rd::Wrapper<model::RdcVertexStageInOutputs> RenderDocReplay::get_vertices_inoutputs(const rd::Lifetime &session_lifetime, uint32_t event_id) const {
+  const auto event = helpers::find_action(controller->GetRootActions().begin(), [event_id](const ActionDescription &a) {
+      const auto next = helpers::get_next_action(&a);
+      return a.eventId <= event_id && (next ? next->eventId > event_id : true);
+    });
+  if (!event)
+    return {};
+  controller->SetFrameEvent(event->eventId, true);
+  return { mesh_previewer->get_vertices(event) };
 }
 
 rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const uint32_t event_id) const  {

@@ -333,11 +333,21 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("breakpoints", immutableList(rdcSourceBreakpoint))
         }
 
+        val rdcVertexStageInOutputs = structdef("rdcVertexStageInOutputs") {
+            field("inputs", immutableList(immutableList(immutableList(float))))
+            field("input_columns", immutableList(string))
+            field("input_indices", immutableList(uint32))
+            field("outputs", immutableList(immutableList(immutableList(float))))
+            field("output_columns", immutableList(string))
+            field("output_indices", immutableList(uint32))
+        }
+
         val rdcCapture = classdef("rdcCapture") {
             field("api", rdcGraphicsApi)
             field("rootActions", array(rdcAction))
 
             callback("getTextureRGBBuffer", uint, array(rdcWindowOutputData))
+            callback("getVertexShaderInOutputs", uint, rdcVertexStageInOutputs)
 
             callback("debugVertex", uint, rdcDebugSession)
             callback("debugPixel", rdcDebugPixelInput, rdcDebugSession)
