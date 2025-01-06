@@ -88,7 +88,6 @@ int32_t RenderDocTexturePreviewService::get_height(uint32_t event_id, std::size_
 }
 
 std::vector<rd::Wrapper<model::RdcWindowOutputData>> RenderDocTexturePreviewService::get_buffers(const ActionDescription *action) {
-
   const uint32_t event_id = action->eventId;
   if (outputs_cache.find(event_id) == outputs_cache.end()) {
     calculate_dimensions(action);
