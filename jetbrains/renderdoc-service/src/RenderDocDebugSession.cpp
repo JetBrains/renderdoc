@@ -1,182 +1,143 @@
 #include "RenderDocDebugSession.h"
 
-#include "RenderDocModel/RdcDebugStack.Generated.h"
+#include "RenderDocReplay.h"
 #include "types/wrapper.h"
-#include "util/StringUtils.h"
+#include "util/RenderDocActionHelpers.h"
+#include "util/RenderDocConverterUtils.h"
 #include <api/replay/renderdoc_replay.h>
 
-#include <cstddef>
-#include <stack>
-#include <utility>
+#include <fstream>
 
 namespace jetbrains::renderdoc {
 
-struct RenderDocBreakpoint {
-  uint32_t source_file;
-  uint32_t line;
+class RenderDocDebugSessionData {
+public:
+  const bool is_draw_call_debug;
+  const ShaderStage stage;
+  const RenderDocReplay * replay;
+  bool was_inside_draw_call = true;
+  rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session;
+  std::unordered_set<model::RdcSourceBreakpoint, RdcSourceBreakpointHash> source_breakpoints;
 
-  RenderDocBreakpoint(const uint32_t source_file, const uint32_t line) : source_file(source_file), line(line) {}
-  explicit RenderDocBreakpoint(const LineColumnInfo &line_column_info) : source_file(line_column_info.fileIndex), line(line_column_info.lineStart) {}
-
-  friend std::size_t hash_value(const RenderDocBreakpoint &obj) {
-    std::size_t seed = 0x54B49F34;
-    seed ^= (seed << 6) + (seed >> 2) + 0x45EE8067 + static_cast<std::size_t>(obj.source_file);
-    seed ^= (seed << 6) + (seed >> 2) + 0x6356C6E9 + static_cast<std::size_t>(obj.line);
-    return seed;
-  }
-  friend bool operator==(const RenderDocBreakpoint &lhs, const RenderDocBreakpoint &rhs) { return lhs.source_file == rhs.source_file && lhs.line == rhs.line; }
-  friend bool operator!=(const RenderDocBreakpoint &lhs, const RenderDocBreakpoint &rhs) { return !(lhs == rhs); }
-
-  struct hash {
-    std::size_t operator()(const RenderDocBreakpoint& breakpoint) const noexcept
-    {
-      return hash_value(breakpoint);
-    }
-  };
+  RenderDocDebugSessionData(bool is_draw_call, const RenderDocReplay * replay, rd::Wrapper<RenderDocDrawCallDebugSession> &&draw_call_session, const ShaderStage &stage)
+  : is_draw_call_debug(is_draw_call), stage(stage), replay(replay), draw_call_session(std::move(draw_call_session)), source_breakpoints({}) {}
 };
 
-struct RenderDocDebugSessionData {
-  ShaderDebugTrace *trace;
-  std::shared_ptr<IReplayController> controller;
-  rdcarray<ShaderDebugState> states;
-  const ShaderDebugInfo *debug_info;
-  ShaderDebugState *current_state = states.begin();
-  InstructionSourceInfo current_instruction;
-  std::stack<std::pair<size_t, InstructionSourceInfo>> calltrace;
-  std::unordered_set<RenderDocBreakpoint, RenderDocBreakpoint::hash> breakpoints;
-  size_t current_callstack_size;
-
-  RenderDocDebugSessionData(ShaderDebugTrace *trace, const std::shared_ptr<IReplayController> &controller, const ShaderDebugInfo *debug_info)
-      : trace(trace), controller(controller), debug_info(debug_info), current_callstack_size(0) {
-    current_instruction.lineInfo.fileIndex = -1;
-  }
-
-  [[nodiscard]] bool do_step() {
-    if (current_state == states.end()) {
-      states = controller->ContinueDebug(trace->debugger);
-      current_state = states.begin();
-    } else {
-      ++current_state;
-    }
-
-    if (current_state == states.end()) {
-      calltrace = {};
-      current_callstack_size = 0;
-      return false;
-    }
-
-    const auto callstack_size = current_state->callstack.size();
-    if (current_callstack_size < callstack_size) {
-      calltrace.emplace(callstack_size, current_instruction);
-      current_callstack_size = callstack_size;
-    } else if (current_callstack_size > callstack_size) {
-      while (!calltrace.empty() && calltrace.top().first > callstack_size) {
-        calltrace.pop();
-      }
-      current_callstack_size = callstack_size;
-    }
-    current_instruction = get_instruction(current_state->nextInstruction);
-    return true;
-  }
-
-  [[nodiscard]] bool do_source_step() {
-    auto call_line_info = !calltrace.empty() ? calltrace.top().second.lineInfo : LineColumnInfo();
-    auto last_line_info = current_instruction.lineInfo;
-    while (do_step()) {
-      const auto &line_info = current_instruction.lineInfo;
-      if (!line_info.SourceEqual(last_line_info)) {
-        if (line_info.SourceEqual(call_line_info)) {
-          last_line_info = call_line_info;
-          call_line_info = !calltrace.empty() ? calltrace.top().second.lineInfo : LineColumnInfo();
-          continue;
-        }
-        return line_info.fileIndex >= 0;
-      }
-    }
-    return false;
-  }
-
-  [[nodiscard]] InstructionSourceInfo get_instruction(const uint32_t instruction) const {
-    InstructionSourceInfo search;
-    search.instruction = instruction;
-    const auto it = std::lower_bound(trace->instInfo.begin(), trace->instInfo.end(), search);
-    if (it == trace->instInfo.end()) {
-      throw std::runtime_error(StringUtils::BuildString("Couldn't find instruction info for ", search.instruction));
-    }
-
-    return *it;
-  }
-
-  ~RenderDocDebugSessionData() { controller->FreeTrace(trace); }
-};
-
-std::vector<rd::Wrapper<model::RdcSourceFile>> RenderDocDebugSession::get_source_files(const ShaderDebugInfo *debug_info) {
-  std::vector<rd::Wrapper<model::RdcSourceFile>> source_files;
-  const auto source_files_count = debug_info->files.count();
-  for (auto index = 0; index < source_files_count; ++index) {
-    const auto &[filename, contents] = debug_info->files[index];
-    source_files.emplace_back(model::RdcSourceFile(StringUtils::Utf8ToWide(filename), StringUtils::Utf8ToWide(contents)));
-  }
-  return source_files;
-}
-
-RenderDocDebugSession::RenderDocDebugSession(const rd::Lifetime& session_lifetime, const std::shared_ptr<IReplayController> &controller, ShaderDebugTrace *trace, const ShaderDebugInfo *debug_info)
-    :  RdcDebugSession(get_source_files(debug_info)), data(std::make_shared<RenderDocDebugSessionData>(trace, controller, debug_info)) {
+RenderDocDebugSession::RenderDocDebugSession(const rd::Lifetime& session_lifetime, const RenderDocReplay *replay, rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session, const ShaderStage &stage, DebugInput input, bool is_draw_call_debug)
+:  input(input), data(std::make_shared<RenderDocDebugSessionData>(is_draw_call_debug, replay, std::move(draw_call_session), stage)) {
   get_stepInto().advise(session_lifetime, [this] { step_into(); });
   get_stepOver().advise(session_lifetime,[this] { step_over(); });
-  get_addBreakpoint().advise(session_lifetime, [this](const auto& req) { add_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
-  get_removeBreakpoint().advise(session_lifetime, [this](const auto &req) { remove_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
+  get_addLineBreakpoint().advise(session_lifetime, [this](const auto& req) { add_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
+  get_addSourceBreakpoint().advise(session_lifetime, [this](const auto& req) { add_source_breakpoint(req); });
+  get_removeLineBreakpoint().advise(session_lifetime, [this](const auto &req) { remove_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
+  get_removeSourceBreakpoint().advise(session_lifetime, [this](const auto &req) { remove_source_breakpoint(req); });
   get_resume().advise(session_lifetime, [this] { resume(); });
+}
+std::vector<rd::Wrapper<model::RdcSourceFile>> const & RenderDocDebugSession::get_sourceFiles() const {
+  return data->draw_call_session->get_sourceFiles();
 }
 
 void RenderDocDebugSession::step_into() const {
-  if (!data->do_source_step()) {
-    get_currentStack().set(rd::Wrapper<model::RdcDebugStack>(nullptr));
-    return;
-  }
-
-  get_currentStack().set(make_debug_stack(data->current_state->stepIndex, data->current_instruction.lineInfo));
-}
-
-rd::Wrapper<model::RdcDebugStack> RenderDocDebugSession::make_debug_stack(const uint32_t step_index, LineColumnInfo const &line_column_info) {
-  return rd::wrapper::make_wrapper<model::RdcDebugStack>(step_index, line_column_info.fileIndex, line_column_info.lineStart, line_column_info.lineEnd, line_column_info.colStart, line_column_info.colEnd);
+  step_to_next_not_null_stack([&] { return data->draw_call_session->step_into(); });
 }
 
 void RenderDocDebugSession::step_over() const {
-  const auto stack_size = data->current_callstack_size;
-  while (data->do_source_step()) {
-    if (data->current_state->callstack.size() <= stack_size) {
-      get_currentStack().set(make_debug_stack(data->current_state->stepIndex, data->current_instruction.lineInfo));
-      return;
-    }
-  }
-  get_currentStack().set(rd::Wrapper<model::RdcDebugStack>(nullptr));
+  step_to_next_not_null_stack([&] { return data->draw_call_session->step_over(); }, true);
 }
 
 void RenderDocDebugSession::resume() const {
-  const auto& breakpoints = data->breakpoints;
-  if (!data->breakpoints.empty()) {
-    const auto& end = breakpoints.end();
-    while (data->do_source_step()) {
-      auto const& line_info = data->current_instruction.lineInfo;
-      if (breakpoints.find(RenderDocBreakpoint(line_info)) != end) {
-        get_currentStack().set(make_debug_stack(data->current_state->stepIndex, line_info));
-        return;
+  resume_to_next_not_null_stack([&] { return data->draw_call_session->resume(); });
+}
+
+void RenderDocDebugSession::add_breakpoint(int32_t source_file_index, uint32_t line) const {
+  data->draw_call_session->add_breakpoint(source_file_index, line);
+}
+
+void RenderDocDebugSession::add_source_breakpoint(const rd::Wrapper<model::RdcSourceBreakpoint> &breakpoint) const {
+  data->source_breakpoints.insert(*breakpoint);
+  if (data->draw_call_session) {
+    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), { *breakpoint })) {
+      add_breakpoint(bp.get_sourceFileIndex(), bp.get_line());
+    }
+  }
+}
+
+void RenderDocDebugSession::remove_breakpoint(int32_t source_file_index, uint32_t line) const {
+  data->draw_call_session->remove_breakpoint(source_file_index, line);
+}
+
+void RenderDocDebugSession::remove_source_breakpoint(const rd::Wrapper<model::RdcSourceBreakpoint> &breakpoint) const {
+  data->source_breakpoints.erase(*breakpoint);
+  if (data->draw_call_session) {
+    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), { *breakpoint })) {
+      remove_breakpoint(bp.get_sourceFileIndex(), bp.get_line());
+    }
+  }
+}
+
+bool RenderDocDebugSession::step_to_next_draw_call() const {
+  if (!data->draw_call_session)
+    return false;
+  const ActionDescription * action = data->draw_call_session->get_action();
+
+  while ((action = helpers::find_action(helpers::get_next_action(action), helpers::is_draw_call))) {
+    if (const auto next_session = data->stage == ShaderStage::Vertex ? data->replay->start_debug_vertex(action) : data->replay->start_debug_pixel(action, input)) {
+      data->draw_call_session = next_session;
+      for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), data->source_breakpoints)) {
+        add_breakpoint(bp.get_sourceFileIndex(), bp.get_line());
       }
+      return true;
     }
   }
 
-  get_currentStack().set(rd::Wrapper<model::RdcDebugStack>(nullptr));
+  data->draw_call_session = rd::Wrapper<RenderDocDrawCallDebugSession>(nullptr);
+  return false;
 }
 
-void RenderDocDebugSession::add_breakpoint(uint32_t source_file_index, uint32_t line) const {
-  data->breakpoints.emplace(source_file_index, line);
+void RenderDocDebugSession::resume_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func) const {
+  rd::Wrapper<model::RdcDebugStack> stack;
+  while (!((stack = func()))) {
+    if (data->is_draw_call_debug || !step_to_next_draw_call()) {
+      get_currentStack().set(rd::Wrapper<model::RdcDebugStack>(nullptr));
+      return;
+    }
+  }
+
+  data->was_inside_draw_call = true;
+  get_drawCallSession().set(data->draw_call_session);
+  get_stageInfo().set(rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_updated_variables()));
+  get_currentStack().set(stack);
 }
 
-void RenderDocDebugSession::remove_breakpoint(uint32_t source_file_index, uint32_t line) const {
-  const auto& it = data->breakpoints.find(RenderDocBreakpoint(source_file_index, line));
-  if (it != data->breakpoints.end())
-    data->breakpoints.erase(it);
+void RenderDocDebugSession::step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, bool step_over) const {
+  rd::Wrapper<model::RdcDebugStack> stack;
+  const bool go_to_next = step_over && get_currentStack().get()->get_stepIndex() == -1;
+  if (go_to_next || !((stack = func()))) {
+    if (data->is_draw_call_debug || !data->was_inside_draw_call && !step_to_next_draw_call()) {
+      get_currentStack().set(rd::Wrapper<model::RdcDebugStack>(nullptr));
+      return;
+    }
+    data->was_inside_draw_call = false;
+    get_drawCallSession().set(data->draw_call_session);
+    get_stageInfo().set(rd::Wrapper<model::RdcStageInfo>(nullptr));
+    get_currentStack().set(rd::wrapper::make_wrapper<model::RdcDebugStack>(data->draw_call_session->get_action()->eventId, -1, -1, 0, 0, 0, 0));
+    return;
+  }
+  data->was_inside_draw_call = true;
+  get_drawCallSession().set(data->draw_call_session);
+  get_stageInfo().set(rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_updated_variables()));
+  get_currentStack().set(stack);
+}
+
+void RenderDocDebugSession::add_breakpoints_from_sources(const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) const {
+  for (const auto& breakpoint : breakpoints) {
+    data->source_breakpoints.insert(*breakpoint);
+  }
+  if (data->draw_call_session) {
+    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), data->source_breakpoints)) {
+      add_breakpoint(bp.get_sourceFileIndex(), bp.get_line());
+    }
+  }
 }
 
 } // namespace jetbrains::renderdoc

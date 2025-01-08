@@ -1,33 +1,17 @@
 #include "RenderDocReplay.h"
 
-#include <string>
-#include <api/replay/renderdoc_replay.h>
+#include "RenderDocTexturePreviewService.h"
+#include "util/ArrayUtils.h"
+#include "util/RenderDocActionHelpers.h"
 
-#include "util/StringUtils.h"
+#include <api/replay/renderdoc_replay.h>
 
 namespace jetbrains::renderdoc
 {
 namespace replay::helpers {
 
-model::RdcActionFlags map_flags(const ActionFlags flags) {
-  model::RdcActionFlags rdc_flags = {};
-  if (flags & ActionFlags::Drawcall)
-    rdc_flags |= model::RdcActionFlags::Drawcall;
-  if (flags & ActionFlags::MeshDispatch)
-    rdc_flags |= model::RdcActionFlags::MeshDispatch;
-  return rdc_flags;
-}
-
-std::vector<rd::Wrapper<model::RdcAction>> get_actions_recursive(const rdcarray<ActionDescription> &descriptions, const SDFile &file) { // NOLINT(*-no-recursion)
-  std::vector<rd::Wrapper<model::RdcAction>> actions;
-  for (const auto &it : descriptions) {
-    actions.emplace_back(rd::wrapper::make_wrapper<model::RdcAction>(it.eventId, it.actionId, StringUtils::Utf8ToWide(it.GetName(file)), map_flags(it.flags), get_actions_recursive(it.children, file)));
-  }
-  return actions;
-}
-
 std::vector<rd::Wrapper<model::RdcAction>> get_root_actions(IReplayController* controller) {
-  return get_actions_recursive(controller->GetRootActions(), controller->GetStructuredFile());
+  return renderdoc::helpers::get_actions_recursive(controller->GetRootActions(), controller->GetStructuredFile());
 }
 
 model::RdcGraphicsApi get_graphics_api(IReplayController *controller) {
@@ -45,46 +29,97 @@ model::RdcGraphicsApi get_graphics_api(IReplayController *controller) {
   }
 }
 
-const ActionDescription *find_action(const ActionDescription *begin, const std::function<bool(const ActionDescription &)> &predicate)
-{
-  const ActionDescription *action = begin;
-  while(action != nullptr)
-  {
-    if(predicate(*action))
-      break;
-
-    if(!action->children.empty())
-    {
-      action = action->children.begin();
-    }
-    else
-    {
-      if(!action->next && action->parent)
-        action = action->parent;
-
-      action = action->next;
-    }
-  }
-  return action;
 }
 
-}
-
-RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{replay::helpers::get_graphics_api(controller), replay::helpers::get_root_actions(controller)}, controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }) {
+RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{replay::helpers::get_graphics_api(controller), replay::helpers::get_root_actions(controller)},
+controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(std::make_shared<RenderDocLineBreakpointsMapper>()), texture_previewer(std::make_shared<RenderDocTexturePreviewService>(controller)) {
   get_debugVertex().set([this](const rd::Lifetime& lifetime, const auto& req) {
     return debug_vertex(lifetime, req);
   });
+  get_debugPixel().set([this](const rd::Lifetime& lifetime, const auto& req) {
+    return debug_pixel(lifetime, req);
+  });
+  get_tryDebugVertex().set([this](const rd::Lifetime& lifetime, const auto& req) {
+    return try_debug_vertex(lifetime, req);
+  });
+  get_tryDebugPixel().set([this](const rd::Lifetime& lifetime, const auto& req) {
+    return try_debug_pixel(lifetime, req);
+  });
+  get_getTextureRGBBuffer().set([this](const rd::Lifetime& lifetime, const auto& req) {
+    return get_textureRGBBuffer(lifetime, req);
+  });
 }
 
-rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const uint32_t event_id) const {
-  controller->SetFrameEvent(event_id, true);
+[[nodiscard]] std::vector<rd::Wrapper<model::RdcWindowOutputData>> RenderDocReplay::get_textureRGBBuffer(const rd::Lifetime &session_lifetime, uint32_t event_id) const {
+  const auto event = helpers::find_action(controller->GetRootActions().begin(), [event_id](const ActionDescription &a) {
+    const auto next = helpers::get_next_action(&a);
+    return a.eventId <= event_id && (next ? next->eventId > event_id : true);
+  });
+  if (!event)
+    return {};
+  controller->SetFrameEvent(event->eventId, true);
+  return texture_previewer->get_buffers(event);
+}
 
-  const auto &pipeline = controller->GetPipelineState();
-  const auto vertex_shader = pipeline.GetShaderReflection(ShaderStage::Vertex);
-  const auto trace = controller->DebugVertex(0, 0, 0, IReplayController::NoPreference);
-  auto&& session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, controller, trace, &vertex_shader->debugInfo);
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const uint32_t event_id) const  {
+  constexpr DebugInput debug_input = {0};
+  const auto action = helpers::find_action(controller->GetRootActions().begin(), [&event_id](const ActionDescription &a){ return a.eventId == event_id; });
+  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_vertex(action), ShaderStage::Vertex, debug_input, true);
   session->step_into();
   return session;
+}
+
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_pixel(const rd::Lifetime &session_lifetime, const model::RdcDebugPixelInput &input) const  {
+  const DebugInput debug_input = {input.get_x(), input.get_y()};
+  const auto action = helpers::find_action(controller->GetRootActions().begin(), [event_id = input.get_eventId()](const ActionDescription &a){ return a.eventId == event_id; });
+  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_pixel(action, debug_input), ShaderStage::Pixel, debug_input, true);
+  session->step_into();
+  return session;
+}
+
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::try_debug_vertex(const rd::Lifetime &session_lifetime, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) const {
+  constexpr DebugInput debug_input = {0};
+  const ActionDescription *action = helpers::find_action(controller->GetRootActions().begin(), helpers::is_draw_call);
+  auto&&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_vertex(action), ShaderStage::Vertex, debug_input, false);
+  session->add_breakpoints_from_sources(breakpoints);
+  session->resume();
+  return session;
+}
+
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::try_debug_pixel(const rd::Lifetime &session_lifetime, const model::RdcDebugPixelInput &input) const {
+  const DebugInput debug_input = {input.get_x(), input.get_y()};
+  const auto action = helpers::find_action(controller->GetRootActions().begin(), helpers::is_draw_call);
+  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_pixel(action, debug_input), ShaderStage::Pixel, debug_input, false);
+  session->add_breakpoints_from_sources(input.get_breakpoints());
+  session->resume();
+  return session;
+}
+
+rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_vertex(const ActionDescription *action) const  {
+  controller->SetFrameEvent(action->eventId, true);
+
+  const auto &pipeline = controller->GetPipelineState();
+  const auto shader = pipeline.GetShaderReflection(ShaderStage::Vertex);
+  ShaderDebugTrace *trace = controller->DebugVertex(0, 0, 0, IReplayController::NoPreference);
+  const auto &drawCallSession = rd::wrapper::make_wrapper<RenderDocDrawCallDebugSession>(action, controller, trace, &shader->debugInfo, shader);
+  if (drawCallSession)
+    mapper->register_sources_usages_in_draw_call(action->eventId, drawCallSession->get_sourceFiles());
+  return drawCallSession;
+}
+
+rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_pixel(const ActionDescription *action, DebugInput input) const {
+  controller->SetFrameEvent(action->eventId, true);
+
+  const auto &pipeline = controller->GetPipelineState();
+  const ShaderReflection * shader = pipeline.GetShaderReflection(ShaderStage::Pixel);
+  const DebugPixelInputs inputs;
+  ShaderDebugTrace *trace = controller->DebugPixel(input.pixel.x, input.pixel.y, inputs);
+  if (trace == nullptr)
+    return rd::Wrapper<RenderDocDrawCallDebugSession>(nullptr);
+  const auto &drawCallSession = rd::wrapper::make_wrapper<RenderDocDrawCallDebugSession>(action, controller, trace, &shader->debugInfo, shader);
+  if (drawCallSession)
+    mapper->register_sources_usages_in_draw_call(action->eventId, drawCallSession->get_sourceFiles());
+  return drawCallSession;
 }
 
 }
