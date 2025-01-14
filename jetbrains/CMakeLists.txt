@@ -27,7 +27,7 @@ else ()
     FetchContent_Declare(rd SOURCE_DIR ${RD_FETCH_PATH})
 endif ()
 
-FetchContent_Populate(rd)
+FetchContent_MakeAvailable(rd)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
