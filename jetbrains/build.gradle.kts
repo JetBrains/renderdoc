@@ -41,6 +41,16 @@ val rdgen: SourceSet by sourceSets.creating {
 }
 val rdgenSourceSet = rdgen
 
+val isUnderTeamCity: Boolean by lazy {
+    val version = System.getenv("TEAMCITY_VERSION")
+    if (version != null) {
+        System.out.println("Running under TeamCity $version")
+    } else {
+        System.out.println("NOT running under TeamCity")
+    }
+    version != null
+}
+
 sourceSets {
     main {
         kotlin {
@@ -299,8 +309,19 @@ val buildRenderDocHost by tasks.registering(Task::class) {
 
 val runtimeJar by tasks.registering(Jar::class) {
     group = "build"
+    description = "Packs final native binaries into the runtime jar."
 
-    from(buildRenderDocHost) {
+    if (!isUnderTeamCity) {
+        dependsOn(buildRenderDocHost)
+    }
+
+    doFirst {
+        require(nativeBinaryOutputDir.get().asFileTree.files.isNotEmpty()) {
+            "The native binaries directory is empty. Build the required binaries first."
+        }
+    }
+
+    from(nativeBinaryOutputDir) {
         into("runtime/${runtimeSuffix.get()}")
     }
 
