@@ -64,18 +64,28 @@ struct RenderDocDrawCallDebugSessionData {
   }
 
   [[nodiscard]] bool do_step() {
-    if (current_state == states.end()) {
-      states = controller->ContinueDebug(trace->debugger);
-      current_state = states.begin();
-    } else {
-      ++current_state;
-    }
+    if (debug_info->sourceDebugInformation)
+      return do_source_step();
 
-    if (current_state == states.end()) {
-      calltrace = {};
-      current_callstack_size = 0;
-      return false;
-    }
+    const auto last_line = current_instruction.lineInfo.disassemblyLine;
+    return do_instruction_step() && current_instruction.lineInfo.disassemblyLine != last_line;
+  }
+
+  [[nodiscard]] bool do_instruction_step() {
+    do {
+      if (current_state == states.end()) {
+        states = controller->ContinueDebug(trace->debugger);
+        current_state = states.begin();
+
+        if (states.empty()) {
+          calltrace = {};
+          current_callstack_size = 0;
+          return false;
+        }
+      } else {
+        ++current_state;
+      }
+    } while (current_state == states.end());
 
     const auto callstack_size = current_state->callstack.size();
     if (current_callstack_size < callstack_size) {
@@ -88,31 +98,29 @@ struct RenderDocDrawCallDebugSessionData {
       current_callstack_size = callstack_size;
     }
     current_instruction = get_instruction(current_state->nextInstruction);
+
+    for (const auto &[before, after] : current_state->changes) {
+      const auto old_name = std::string(before.name.c_str());
+      variables.erase(old_name);
+      const auto new_name = std::string(after.name.c_str());
+      variables.emplace(new_name, after);
+    }
+
     return true;
   }
 
   [[nodiscard]] bool do_source_step() {
-    const bool is_source_debug = debug_info->sourceDebugInformation;
     auto call_line_info = !calltrace.empty() ? calltrace.top().second.lineInfo : LineColumnInfo();
     auto last_line_info = current_instruction.lineInfo;
-    while (do_step()) {
+    while (do_instruction_step()) {
       const auto &line_info = current_instruction.lineInfo;
-      if (!line_info.SourceEqual(last_line_info) || !is_source_debug && line_info.disassemblyLine != last_line_info.disassemblyLine) {
-        if (line_info.SourceEqual(call_line_info) && (is_source_debug || line_info.disassemblyLine == call_line_info.disassemblyLine)) {
+      if (!line_info.SourceEqual(last_line_info)) {
+        if (line_info.SourceEqual(call_line_info)) {
           last_line_info = call_line_info;
           call_line_info = !calltrace.empty() ? calltrace.top().second.lineInfo : LineColumnInfo();
           continue;
         }
-        if (!is_source_debug || line_info.fileIndex >= 0) {
-          for (const auto &[before, after] : current_state->changes) {
-            const auto old_name = std::string(before.name.c_str());
-            variables.erase(old_name);
-            const auto new_name = std::string(after.name.c_str());
-            variables.emplace(new_name, after);
-          }
-          return true;
-        }
-        break;
+        return line_info.fileIndex >= 0;
       }
     }
     return false;
@@ -167,7 +175,7 @@ RenderDocDrawCallDebugSession::RenderDocDrawCallDebugSession(const ActionDescrip
 }
 
 rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_into() const {
-  if (!data->do_source_step())
+  if (!data->do_step())
     return rd::Wrapper<model::RdcDebugStack>(nullptr);
 
   return make_debug_stack(data->current_state->stepIndex, data->current_instruction.lineInfo);
@@ -182,7 +190,7 @@ rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::make_debug_stac
 
 rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_over() const {
   const auto stack_size = data->current_callstack_size;
-  while (data->do_source_step()) {
+  while (data->do_step()) {
     if (data->current_state->callstack.size() <= stack_size) {
       return make_debug_stack(data->current_state->stepIndex, data->current_instruction.lineInfo);
     }
@@ -194,7 +202,7 @@ rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::resume() const 
   const auto& breakpoints = data->breakpoints;
   if (!data->breakpoints.empty()) {
     const auto& end = breakpoints.end();
-    while (data->do_source_step()) {
+    while (data->do_step()) {
       auto const& line_info = data->current_instruction.lineInfo;
       if (breakpoints.find(RenderDocBreakpoint(line_info)) != end) {
         return make_debug_stack(data->current_state->stepIndex, line_info);
