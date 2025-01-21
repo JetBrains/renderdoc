@@ -28,7 +28,7 @@ plugins {
     id("maven-publish")
     id("de.undercouch.download") version "5.6.0"
 
-    kotlin("jvm") version "1.9.21"
+    kotlin("jvm") version "2.0.21"
 }
 
 apply {
