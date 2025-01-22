@@ -147,11 +147,6 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("component", uint32)
         }
 
-        val rdcShaderVariableChange = structdef("rdcShaderVariableChange") {
-            field("before", rdcShaderVariable)
-            field("after", rdcShaderVariable)
-        }
-
         val rdcSourceVariableMapping = structdef("rdcSourceVariableMapping") {
             field("name", string)
             field("type", rdcVarType)

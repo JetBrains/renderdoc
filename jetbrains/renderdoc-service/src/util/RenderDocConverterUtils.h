@@ -3,7 +3,6 @@
 
 #include "RenderDocModel/RdcDebugTrace.Generated.h"
 #include "RenderDocModel/RdcShaderReflection.Generated.h"
-#include "RenderDocModel/RdcShaderVariableChange.Generated.h"
 #include "RenderDocModel/RdcUsedDescriptor.Generated.h"
 #include "RenderDocModel/RenderDocModel.Generated.h"
 
