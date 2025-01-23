@@ -77,10 +77,10 @@ rd::Wrapper<model::RdcVertexStageInOutputs> RenderDocReplay::get_vertices_inoutp
   return { mesh_previewer->get_vertices(event) };
 }
 
-rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const uint32_t event_id) const  {
-  constexpr DebugInput debug_input = {0};
-  const auto action = helpers::find_action(controller->GetRootActions().begin(), [&event_id](const ActionDescription &a){ return a.eventId == event_id; });
-  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_vertex(action), ShaderStage::Vertex, debug_input, true);
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const model::RdcDebugVertexInput &input) const  {
+  const DebugInput debug_input = {input.get_vertex()};
+  const auto action = helpers::find_action(controller->GetRootActions().begin(), [id = input.get_eventId()](const ActionDescription &a){ return a.eventId == id; });
+  auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_vertex(action, debug_input), ShaderStage::Vertex, debug_input, true);
   session->step_into();
   return session;
 }
@@ -93,11 +93,11 @@ rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_pixel(const rd::Lifeti
   return session;
 }
 
-rd::Wrapper<RenderDocDebugSession> RenderDocReplay::try_debug_vertex(const rd::Lifetime &session_lifetime, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) const {
-  constexpr DebugInput debug_input = {0};
+rd::Wrapper<RenderDocDebugSession> RenderDocReplay::try_debug_vertex(const rd::Lifetime &session_lifetime, const model::RdcDebugVertexInput &input) const {
+  const DebugInput debug_input = { input.get_vertex() };
   const ActionDescription *action = helpers::find_action(controller->GetRootActions().begin(), helpers::is_draw_call);
-  auto&&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_vertex(action), ShaderStage::Vertex, debug_input, false);
-  session->add_breakpoints_from_sources(breakpoints);
+  auto&&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, start_debug_vertex(action, debug_input), ShaderStage::Vertex, debug_input, false);
+  session->add_breakpoints_from_sources(input.get_breakpoints());
   session->resume();
   return session;
 }
@@ -111,12 +111,12 @@ rd::Wrapper<RenderDocDebugSession> RenderDocReplay::try_debug_pixel(const rd::Li
   return session;
 }
 
-rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_vertex(const ActionDescription *action) const  {
+rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_vertex(const ActionDescription *action, DebugInput input) const  {
   controller->SetFrameEvent(action->eventId, true);
 
   const auto &pipeline = controller->GetPipelineState();
   const auto shader = pipeline.GetShaderReflection(ShaderStage::Vertex);
-  ShaderDebugTrace *trace = controller->DebugVertex(0, 0, 0, IReplayController::NoPreference);
+  ShaderDebugTrace *trace = controller->DebugVertex(input.vertex_id, 0, 0, IReplayController::NoPreference);
   const auto &drawCallSession = rd::wrapper::make_wrapper<RenderDocDrawCallDebugSession>(action, controller, trace, &shader->debugInfo, shader);
   if (drawCallSession)
     mapper->register_sources_usages_in_draw_call(action->eventId, drawCallSession->get_sourceFiles());

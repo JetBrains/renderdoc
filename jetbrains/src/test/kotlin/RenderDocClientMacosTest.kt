@@ -8,6 +8,7 @@ import com.jetbrains.rd.util.threading.coroutines.asCoroutineDispatcher
 import com.jetbrains.renderdoc.rdClient.model.RdcLineBreakpoint
 import com.jetbrains.renderdoc.rdClient.model.RdcActionFlags
 import com.jetbrains.renderdoc.rdClient.model.RdcCapture
+import com.jetbrains.renderdoc.rdClient.model.RdcDebugVertexInput
 import kotlinx.coroutines.*
 import org.junit.jupiter.api.Assertions.*
 import kotlin.io.path.Path
@@ -20,7 +21,7 @@ class RenderDocClientMacosTest {
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
-                capture.debugVertex.startSuspending(sessionLifetime, eventId)
+                capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(eventId, 0u, emptyList()))
             }
             assertEquals("triangle.vert", Path(debugSession.drawCallSession.valueOrThrow.sourceFiles[0].name).name)
 
@@ -49,7 +50,7 @@ class RenderDocClientMacosTest {
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
-                capture.debugVertex.startSuspending(sessionLifetime, eventId)
+                capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(eventId, 0u, emptyList()))
             }
 
             val lineNumbers = mutableListOf<UInt>()

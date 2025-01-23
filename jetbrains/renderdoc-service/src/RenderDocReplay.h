@@ -22,12 +22,12 @@ public:
 
   [[nodiscard]] std::vector<rd::Wrapper<model::RdcWindowOutputData>> get_textureRGBBuffer(const rd::Lifetime &session_lifetime, uint32_t event_id) const;
   [[nodiscard]] rd::Wrapper<model::RdcVertexStageInOutputs> get_vertices_inoutputs(const rd::Lifetime &session_lifetime, uint32_t event_id) const;
-  [[nodiscard]] rd::Wrapper<RenderDocDebugSession> debug_vertex(const rd::Lifetime &session_lifetime, uint32_t event_id) const;
+  [[nodiscard]] rd::Wrapper<RenderDocDebugSession> debug_vertex(const rd::Lifetime &session_lifetime, const model::RdcDebugVertexInput &input) const;
   [[nodiscard]] rd::Wrapper<RenderDocDebugSession> debug_pixel(const rd::Lifetime &session_lifetime, const model::RdcDebugPixelInput &input) const;
-  [[nodiscard]] rd::Wrapper<RenderDocDebugSession> try_debug_vertex(const rd::Lifetime &session_lifetime, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) const;
+  [[nodiscard]] rd::Wrapper<RenderDocDebugSession> try_debug_vertex(const rd::Lifetime &session_lifetime, const model::RdcDebugVertexInput &input) const;
   [[nodiscard]] rd::Wrapper<RenderDocDebugSession> try_debug_pixel(const rd::Lifetime &session_lifetime, const model::RdcDebugPixelInput &input) const;
 
-  [[nodiscard]] rd::Wrapper<RenderDocDrawCallDebugSession> start_debug_vertex(const ActionDescription * action) const;
+  [[nodiscard]] rd::Wrapper<RenderDocDrawCallDebugSession> start_debug_vertex(const ActionDescription * action, DebugInput input) const;
   [[nodiscard]] rd::Wrapper<RenderDocDrawCallDebugSession> start_debug_pixel(const ActionDescription * action, DebugInput input) const;
 };
 
