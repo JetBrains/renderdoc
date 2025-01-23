@@ -11,7 +11,7 @@ void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wr
 
   // disassembly
   {
-    const auto debug_session = replay->debug_vertex(lifetime, 784);
+    const auto debug_session = replay->debug_vertex(lifetime, model::RdcDebugVertexInput(784, 5039, {}));
 
     const LineTracker line_tracker(lifetime, debug_session);
 
@@ -35,7 +35,7 @@ void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wr
 
   // ShaderLab source file
   {
-    const auto debug_session = replay->debug_vertex(lifetime, 732);
+    const auto debug_session = replay->debug_vertex(lifetime, model::RdcDebugVertexInput(732, 30, {}));
 
     const FrameTracker frame_tracker(lifetime, debug_session);
 
@@ -61,7 +61,7 @@ void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wr
 }
 
 void assert_try_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) {
-  const auto vertex_debug_session = replay->try_debug_vertex(lifetime, breakpoints);
+  const auto vertex_debug_session = replay->try_debug_vertex(lifetime, model::RdcDebugVertexInput(0, 100, breakpoints));
 
   const auto eventId = vertex_debug_session->get_currentStack().get()->get_drawCallId();
   assert(eventId == 715);
@@ -142,7 +142,7 @@ void assert_try_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd
 }
 
 void assert_try_debug_vertex_with_breakpoints(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) {
-  const auto vertex_debug_session = replay->try_debug_vertex(lifetime, breakpoints);
+  const auto vertex_debug_session = replay->try_debug_vertex(lifetime, model::RdcDebugVertexInput(0, 17, breakpoints));
 
   const auto eventId = vertex_debug_session->get_currentStack().get()->get_drawCallId();
   assert(eventId == 715);
@@ -324,6 +324,39 @@ void assert_try_debug_pixel_with_breakpoints(const rd::Lifetime &lifetime, const
     rd::Wrapper<model::RdcDebugStack>(nullptr)}));
 }
 
+void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
+  {
+    const auto &vertices = replay->get_vertices_inoutputs(lifetime, 677);
+    assert(vertices->get_input_indices() == std::vector<uint32_t>({0, 1, 2}));
+    assert(vertices->get_output_indices() == std::vector<uint32_t>({0, 1, 2}));
+    assert(vertices->get_input_columns().empty());
+    assert(vertices->get_output_columns() == std::vector({rd::Wrapper<std::wstring>(L"SV_POSITION"), rd::Wrapper<std::wstring>(L"TEXCOORD")}));
+    assert(vertices->get_inputs() == std::vector<std::vector<std::vector<float>>>({{}, {}, {}}));
+    assert(vertices->get_outputs() == std::vector<std::vector<std::vector<float>>>({
+      {{ -1.0, -1.0, 1.0, 1.0 }, { 0.0, 1.0 }},
+      {{ 3.0, -1.0, 1.0, 1.0 }, { 2.0, 1.0 }},
+      {{ -1.0, 3.0, 1.0, 1.0 }, { 0.0, -1.0 }}
+    }));
+  }
+  {
+    const auto &vertices = replay->get_vertices_inoutputs(lifetime, 715);
+    assert(vertices->get_input_indices().size() == 2304);
+    assert(vertices->get_output_indices().size() == 2304);
+    assert(vertices->get_input_indices() == vertices->get_output_indices());
+    assert(vertices->get_input_indices()[0] == 177 && vertices->get_input_indices()[1] == 386 && vertices->get_input_indices()[1442] == 298 && vertices->get_input_indices()[2303] == 510);
+    assert(vertices->get_input_columns() == std::vector({rd::Wrapper<std::wstring>(L"POSITION"), rd::Wrapper<std::wstring>(L"NORMAL"), rd::Wrapper<std::wstring>(L"TEXCOORD0")}));
+    assert(vertices->get_output_columns() == std::vector({rd::Wrapper<std::wstring>(L"SV_POSITION"), rd::Wrapper<std::wstring>(L"COLOR")}));
+    assert(vertices->get_inputs().size() == 2304);
+    assert(vertices->get_outputs().size() == 2304);
+    assert(vertices->get_inputs()[0] == std::vector<std::vector<float>>({{ 0.19199951, -0.450263649, -0.0945074409 }, { 0.382818788, -0.904339671, -0.188731149 }, { 0.425961286, 0.175267562 }}));
+    assert(vertices->get_inputs()[2227] == std::vector<std::vector<float>>({{ 0.0905187949, 0.275551766, -0.406967759 }, { 0.180491149, 0.550244927, -0.815262854 }, { 0.283699751, 0.675781726 }}));
+    assert(vertices->get_inputs()[2303] == std::vector<std::vector<float>>({{ -0.288835436, 0.287900388, -0.288835436 }, { -0.577053428, 0.577943504, -0.577053428 }, { 0.123985529, 0.683609068 }}));
+    assert(vertices->get_outputs()[0] == std::vector<std::vector<float>>({{ -0.892122149, 0.0177013576, 0.0561662987, 5.5933671 }, { 0.691409409, 0.0478301644, 0.405634433 }}));
+    assert(vertices->get_outputs()[227] == std::vector<std::vector<float>>({{ -0.817703127, -0.542326808, 0.0561641343, 6.02090645 }, { 0.211324871, 0.211324871, 0.211324841 }}));
+    assert(vertices->get_outputs()[524] == std::vector<std::vector<float>>({{ -0.670523405, -1.33369005, 0.0561684333, 5.1719327 }, { 0.683429419, 0.927442729, 0.683429419 }}));
+  }
+}
+
 int main() {
   const rd::LifetimeDefinition test_lifetime_def;
   const auto lifetime = test_lifetime_def.lifetime;
@@ -356,6 +389,8 @@ int main() {
     assert_debug_pixel_step_by_step(lifetime, replay);
     assert_try_debug_pixel_step_by_step(lifetime, replay, breakpoints);
     assert_try_debug_pixel_with_breakpoints(lifetime, replay, breakpoints);
+
+    assert_vertices_table(lifetime, replay);
     return 0;
   } catch (const std::exception &ex) {
     std::cerr << ex.what() << std::endl;
