@@ -18,7 +18,7 @@ class RenderDocClientWindowsTest {
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
-                capture.debugVertex.startSuspending(sessionLifetime, 784u)
+                capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(784u, 5039u, emptyList()))
             }
             assertTrue(debugSession.drawCallSession.valueOrThrow.sourceFiles.isEmpty())
 
@@ -52,7 +52,7 @@ class RenderDocClientWindowsTest {
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
-                capture.debugVertex.startSuspending(sessionLifetime, 732u)
+                capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(732u, 0u, emptyList()))
             }
             assertEquals(debugSession.drawCallSession.valueOrThrow.sourceFiles[0].name, "unnamed_shader")
 
@@ -94,7 +94,7 @@ class RenderDocClientWindowsTest {
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
-                capture.tryDebugVertex.startSuspending(sessionLifetime, breakpoints)
+                capture.tryDebugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(0u, 0u, breakpoints))
             }
 
             val frames = mutableListOf<RdcDebugStack>()
@@ -193,7 +193,7 @@ class RenderDocClientWindowsTest {
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
-                capture.tryDebugVertex.startSuspending(sessionLifetime, breakpoints)
+                capture.tryDebugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(0u, 0u, breakpoints))
             }
 
             val frames = mutableListOf<RdcDebugStack>()

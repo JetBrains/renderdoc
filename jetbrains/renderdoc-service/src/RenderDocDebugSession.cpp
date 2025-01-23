@@ -81,7 +81,7 @@ bool RenderDocDebugSession::step_to_next_draw_call() const {
   const ActionDescription * action = data->draw_call_session->get_action();
 
   while ((action = helpers::find_action(helpers::get_next_action(action), helpers::is_draw_call))) {
-    if (const auto next_session = data->stage == ShaderStage::Vertex ? data->replay->start_debug_vertex(action) : data->replay->start_debug_pixel(action, input)) {
+    if (const auto next_session = data->stage == ShaderStage::Vertex ? data->replay->start_debug_vertex(action, input) : data->replay->start_debug_pixel(action, input)) {
       data->draw_call_session = next_session;
       for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), data->source_breakpoints)) {
         add_breakpoint(bp.get_sourceFileIndex(), bp.get_line());

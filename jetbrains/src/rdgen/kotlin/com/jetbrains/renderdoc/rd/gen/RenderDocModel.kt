@@ -333,6 +333,12 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("breakpoints", immutableList(rdcSourceBreakpoint))
         }
 
+        val rdcDebugVertexInput = structdef("rdcDebugVertexInput") {
+            field("eventId", uint)
+            field("vertex", uint)
+            field("breakpoints", immutableList(rdcSourceBreakpoint))
+        }
+
         val rdcVertexStageInOutputs = structdef("rdcVertexStageInOutputs") {
             field("inputs", immutableList(immutableList(immutableList(float))))
             field("input_columns", immutableList(string))
@@ -349,9 +355,9 @@ object RenderDocModel : Ext(RenderDocRoot) {
             callback("getTextureRGBBuffer", uint, array(rdcWindowOutputData))
             callback("getVertexShaderInOutputs", uint, rdcVertexStageInOutputs)
 
-            callback("debugVertex", uint, rdcDebugSession)
+            callback("debugVertex", rdcDebugVertexInput, rdcDebugSession)
             callback("debugPixel", rdcDebugPixelInput, rdcDebugSession)
-            callback("tryDebugVertex", immutableList(rdcSourceBreakpoint), rdcDebugSession)
+            callback("tryDebugVertex", rdcDebugVertexInput, rdcDebugSession)
             callback("tryDebugPixel", rdcDebugPixelInput, rdcDebugSession)
         }
 

@@ -6,7 +6,7 @@
 using namespace jetbrains::renderdoc;
 
 void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, uint32_t eventId) {
-  const auto debug_session = replay->debug_vertex(lifetime, eventId);
+  const auto debug_session = replay->debug_vertex(lifetime, model::RdcDebugVertexInput(eventId, 30, {}));
   const auto name = debug_session->get_sourceFiles()[0].get()->get_name();
   assert(name.find(L"/triangle.vert") != std::wstring::npos);
 
@@ -22,7 +22,7 @@ void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wr
 }
 
 void assert_debug_vertex_with_breakpoints(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, uint32_t eventId) {
-  const auto debug_session = replay->debug_vertex(lifetime, eventId);
+  const auto debug_session = replay->debug_vertex(lifetime, model::RdcDebugVertexInput(eventId, 0, {}));
   const LineTracker line_tracker(lifetime, debug_session);
 
   debug_session->add_breakpoint(0, 34);
