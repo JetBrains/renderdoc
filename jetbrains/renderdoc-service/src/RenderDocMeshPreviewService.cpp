@@ -445,6 +445,14 @@ std::vector<std::vector<std::vector<float>>> RenderDocMeshPreviewService::transl
 void RenderDocMeshPreviewService::calculate_vertices(const ActionDescription *action) {
   const auto &pipe_state = controller->GetPipelineState();
 
+  // TODO: support buffer preview for MeshDispatch actions
+  auto is_mesh_dispatch = action->flags & ActionFlags::MeshDispatch;
+  auto is_drawcall = action->flags & ActionFlags::Drawcall;
+  if (!is_drawcall) {
+    stage_info_cache.try_emplace(action->eventId, std::nullopt);
+    return;
+  }
+
   BufferConfig input_config;
   BufferConfig output_config;
   if (pipe_state.IsRestartEnabled() && action->flags & ActionFlags::Indexed) {
@@ -472,22 +480,25 @@ void RenderDocMeshPreviewService::calculate_vertices(const ActionDescription *ac
 
   std::vector<uint32_t> in_indices, out_indices;
   std::vector<rd::Wrapper<std::wstring>> in_columns, out_columns;
-  stage_info_cache.try_emplace(action->eventId,
+  stage_info_cache.try_emplace(action->eventId, std::make_optional<model::RdcVertexStageInOutputs>(
     translate_buffers_to_floats(input_config, in_columns, in_indices, instance),
     in_columns,
     in_indices,
     translate_buffers_to_floats(output_config, out_columns, out_indices, instance),
     out_columns,
     out_indices
-    );
+    ));
 }
 
-model::RdcVertexStageInOutputs RenderDocMeshPreviewService::get_vertices(const ActionDescription *action) {
+rd::Wrapper<model::RdcVertexStageInOutputs> RenderDocMeshPreviewService::get_vertices(const ActionDescription *action) {
   const uint32_t event_id = action->eventId;
   if (stage_info_cache.find(event_id) == stage_info_cache.end()) {
     calculate_vertices(action);
   }
-  return stage_info_cache.at(event_id);
+  const auto &stage_info = stage_info_cache.at(event_id);
+  if (stage_info.has_value())
+    return { stage_info.value() };
+  return rd::Wrapper<model::RdcVertexStageInOutputs>(nullptr);
 }
 
 } // namespace jetbrains::renderdoc

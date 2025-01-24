@@ -5,7 +5,7 @@
 
 #include <string>
 
-class ActionDescription;
+struct ActionDescription;
 
 namespace jetbrains::renderdoc {
 class RenderDocService {

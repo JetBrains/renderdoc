@@ -44,6 +44,24 @@ const ActionDescription *find_action(const ActionDescription *begin, const std::
   return action;
 }
 
+const ActionDescription *get_action(const rdcarray<ActionDescription> &actions, uint32_t event_id)
+{
+  for(const ActionDescription &a : actions)
+  {
+    if(!a.children.empty())
+    {
+      const ActionDescription *action = get_action(a.children, event_id);
+      if(action != nullptr)
+        return action;
+    }
+
+    if(a.eventId == event_id)
+      return &a;
+  }
+
+  return nullptr;
+}
+
 bool is_draw_call(const ActionDescription &action) {
   return action.flags & ActionFlags::Drawcall || action.flags & ActionFlags::MeshDispatch;
 }
