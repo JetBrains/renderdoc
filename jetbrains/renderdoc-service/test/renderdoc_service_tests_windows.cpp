@@ -326,7 +326,27 @@ void assert_try_debug_pixel_with_breakpoints(const rd::Lifetime &lifetime, const
 
 void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
   {
+    const auto &vertices = replay->get_vertices_inoutputs(lifetime, 787);
+    assert(vertices == nullptr);
+  }
+  {
+    const auto &vertices = replay->get_vertices_inoutputs(lifetime, 97);
+    assert(vertices == nullptr);
+  }
+  {
+    const auto &vertices = replay->get_vertices_inoutputs(lifetime, 112);
+    assert(vertices != nullptr);
+    assert(vertices->get_input_indices() == std::vector<uint32_t>({ 22561, 22563, 22562, 22562, 22563, 22564 }));
+    assert(vertices->get_input_columns() == std::vector({rd::Wrapper<std::wstring>(L"POSITION"), rd::Wrapper<std::wstring>(L"COLOR"), rd::Wrapper<std::wstring>(L"TEXCOORD0")}));
+    assert(vertices->get_output_columns() == std::vector({rd::Wrapper<std::wstring>(L"SV_POSITION"), rd::Wrapper<std::wstring>(L"COLOR"), rd::Wrapper<std::wstring>(L"TEXCOORD0"), rd::Wrapper<std::wstring>(L"TEXCOORD1")}));
+    assert(vertices->get_inputs()[0] == std::vector<std::vector<float>>({ { -0.000671386719, 761.333008, 0.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 0.00, 0.00 } }));
+    assert(vertices->get_inputs()[5] == std::vector<std::vector<float>>({ { 1356.66626, 0.00, 0.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 1.00, 1.00 } }));
+    assert(vertices->get_outputs()[2] == std::vector<std::vector<float>>({ { 0.99999988, -1.00, 0.990099012, 1.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 1.00, 0.00 }, { 0.93749994, 0.937500059 } }));
+    assert(vertices->get_outputs()[3] == std::vector<std::vector<float>>({ { 0.99999988, -1.00, 0.990099012, 1.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 1.00, 0.00 }, { 0.93749994, 0.937500059 } }));
+  }
+  {
     const auto &vertices = replay->get_vertices_inoutputs(lifetime, 677);
+    assert(vertices != nullptr);
     assert(vertices->get_input_indices() == std::vector<uint32_t>({0, 1, 2}));
     assert(vertices->get_output_indices() == std::vector<uint32_t>({0, 1, 2}));
     assert(vertices->get_input_columns().empty());
@@ -340,6 +360,7 @@ void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<Rende
   }
   {
     const auto &vertices = replay->get_vertices_inoutputs(lifetime, 715);
+    assert(vertices != nullptr);
     assert(vertices->get_input_indices().size() == 2304);
     assert(vertices->get_output_indices().size() == 2304);
     assert(vertices->get_input_indices() == vertices->get_output_indices());
@@ -354,6 +375,79 @@ void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<Rende
     assert(vertices->get_outputs()[0] == std::vector<std::vector<float>>({{ -0.892122149, 0.0177013576, 0.0561662987, 5.5933671 }, { 0.691409409, 0.0478301644, 0.405634433 }}));
     assert(vertices->get_outputs()[227] == std::vector<std::vector<float>>({{ -0.817703127, -0.542326808, 0.0561641343, 6.02090645 }, { 0.211324871, 0.211324871, 0.211324841 }}));
     assert(vertices->get_outputs()[524] == std::vector<std::vector<float>>({{ -0.670523405, -1.33369005, 0.0561684333, 5.1719327 }, { 0.683429419, 0.927442729, 0.683429419 }}));
+  }
+}
+
+void assert_texture_outputs(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
+  const auto &outputs_root = replay->get_textureRGBBuffer(lifetime, -1);
+
+  {
+    const auto &outputs_last = replay->get_textureRGBBuffer(lifetime, 1671);
+    assert(outputs_root == outputs_last);
+    assert(outputs_root->get_colorOutputs().size() == 1);
+    assert(!outputs_root->get_depthOutput());
+    assert(outputs_root->get_colorOutputs()[0]->get_width() == 2035);
+    assert(outputs_root->get_colorOutputs()[0]->get_height() == 1142);
+  }
+  {
+    const auto &outputs_grouped = replay->get_textureRGBBuffer(lifetime, 97);
+    const auto &outputs_leaf = replay->get_textureRGBBuffer(lifetime, 1638);
+    assert(outputs_grouped == outputs_leaf);
+    assert(outputs_grouped->get_colorOutputs().size() == 1);
+    assert(outputs_grouped->get_depthOutput());
+    assert(outputs_root->get_colorOutputs()[0]->get_width() == 2035);
+    assert(outputs_root->get_colorOutputs()[0]->get_height() == 1142);
+  }
+  {
+    const auto &outputs = replay->get_textureRGBBuffer(lifetime, 0);
+    assert(outputs->get_colorOutputs().size() == 1);
+    assert(outputs->get_depthOutput());
+    assert(outputs->get_colorOutputs()[0]->get_width() == 2035);
+    assert(outputs->get_colorOutputs()[0]->get_height() == 1142);
+  }
+  {
+    const auto &outputs_grouped = replay->get_textureRGBBuffer(lifetime, 543);
+    assert(outputs_grouped->get_colorOutputs().size() == 1);
+    assert(outputs_grouped->get_depthOutput());
+    assert(outputs_grouped->get_colorOutputs()[0]->get_width() == 2032);
+    assert(outputs_grouped->get_colorOutputs()[0]->get_height() == 1070);
+  }
+  {
+    const auto &outputs_grouped = replay->get_textureRGBBuffer(lifetime, 696);
+    {
+      const auto &outputs_grouped_1 = replay->get_textureRGBBuffer(lifetime, 739);
+      assert(outputs_grouped == outputs_grouped_1);
+      assert(outputs_grouped->get_colorOutputs().size() == 1);
+      assert(outputs_grouped->get_depthOutput());
+      assert(outputs_grouped->get_colorOutputs()[0]->get_width() == 2032);
+      assert(outputs_grouped->get_colorOutputs()[0]->get_height() == 1070);
+    }
+    {
+      const auto &outputs_leaf = replay->get_textureRGBBuffer(lifetime, 715);
+      assert(outputs_leaf->get_colorOutputs().size() == 1);
+      assert(outputs_leaf->get_depthOutput());
+      assert(outputs_leaf->get_colorOutputs()[0]->get_width() == 2032);
+      assert(outputs_leaf->get_colorOutputs()[0]->get_height() == 1070);
+    }
+    {
+      const auto &outputs_grouped_1 = replay->get_textureRGBBuffer(lifetime, 697);
+      assert(outputs_grouped_1 != outputs_grouped);
+
+      assert(outputs_grouped_1->get_colorOutputs().size() == 1);
+      assert(outputs_grouped_1->get_depthOutput());
+      assert(outputs_grouped_1->get_colorOutputs()[0]->get_width() == 2032);
+      assert(outputs_grouped_1->get_colorOutputs()[0]->get_height() == 1070);
+
+      const auto &outputs_end_event = replay->get_textureRGBBuffer(lifetime, 738);
+      assert(outputs_grouped_1 == outputs_end_event);
+    }
+  }
+  {
+    const auto &outputs_leaf = replay->get_textureRGBBuffer(lifetime, 1244);
+    assert(outputs_leaf->get_colorOutputs().size() == 1);
+    assert(outputs_leaf->get_depthOutput());
+    assert(outputs_leaf->get_colorOutputs()[0]->get_width() == 2032);
+    assert(outputs_leaf->get_colorOutputs()[0]->get_height() == 1070);
   }
 }
 
@@ -391,6 +485,7 @@ int main() {
     assert_try_debug_pixel_with_breakpoints(lifetime, replay, breakpoints);
 
     assert_vertices_table(lifetime, replay);
+    assert_texture_outputs(lifetime, replay);
     return 0;
   } catch (const std::exception &ex) {
     std::cerr << ex.what() << std::endl;

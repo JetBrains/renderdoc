@@ -3,8 +3,9 @@
 
 #include "types/wrapper.h"
 
-#include <map>
 #include <api/replay/renderdoc_replay.h>
+#include <map>
+#include <optional>
 
 namespace jetbrains::renderdoc {
 namespace utils {
@@ -48,7 +49,7 @@ class RenderDocMeshPreviewService {
 
   IReplayController *controller;
   std::map<ResourceId, BufferDescription> buffers;
-  std::unordered_map<uint32_t, model::RdcVertexStageInOutputs> stage_info_cache;
+  std::unordered_map<uint32_t, std::optional<model::RdcVertexStageInOutputs>> stage_info_cache;
 
   static uint32_t calculate_index(const BufferData &data, uint32_t vertex_id, int32_t base_vertex, uint32_t prim_restart);
 
@@ -61,7 +62,7 @@ class RenderDocMeshPreviewService {
 public:
   explicit RenderDocMeshPreviewService(IReplayController *controller);
   void calculate_vertices(const ActionDescription *action);
-  model::RdcVertexStageInOutputs get_vertices(const ActionDescription *action);
+  rd::Wrapper<model::RdcVertexStageInOutputs> get_vertices(const ActionDescription *action);
 
 };
 } // namespace jetbrains::renderdoc

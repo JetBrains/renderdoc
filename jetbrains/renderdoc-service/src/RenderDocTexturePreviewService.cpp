@@ -1,5 +1,6 @@
 #include "RenderDocTexturePreviewService.h"
 
+#include "RenderDocModel/RdcTextureOutputs.Generated.h"
 #include "RenderDocModel/RdcWindowOutputData.Generated.h"
 #include "util/ArrayUtils.h"
 #include "util/RenderDocActionHelpers.h"
@@ -18,36 +19,38 @@ Descriptor RenderDocTexturePreviewService::create_descriptor(ResourceId id) {
   return descriptor;
 }
 
-void RenderDocTexturePreviewService::calculate_dimensions(const ActionDescription *action) {
+void RenderDocTexturePreviewService::calculate_dimensions(const ActionDescription *action, uint32_t event_id) {
   auto outputs = get_output_targets(action);
   outputs.push_back(get_depth_target(action));
 
   const auto textures = controller->GetTextures();
-  constexpr auto flags = TextureCategory::ColorTarget | TextureCategory::DepthTarget;
   int32_t width = 0;
   int32_t height = 0;
   std::vector<Dimensions> dimensions;
   for (auto target : outputs) {
     const auto texture = std::find_if(textures.begin(), textures.end(), [id = target.resource](const TextureDescription &t) { return t.resourceId == id; });
-    if (texture == textures.end() || !(texture->creationFlags & flags))
+    if (texture == textures.end() || !(texture->creationFlags & (TextureCategory::ColorTarget | TextureCategory::DepthTarget)))
       continue;
     width = std::max(static_cast<int32_t>(std::min<uint32_t>(texture->width, INT32_MAX)), width);
     height = std::max(static_cast<int32_t>(std::min<uint32_t>(texture->height, INT32_MAX)), height);
-    outputs_cache[action->eventId].emplace_back(target, Dimensions(width, height));
+    if (texture->creationFlags & TextureCategory::ColorTarget)
+      color_outputs_cache[event_id].emplace_back(target, Dimensions(width, height));
+    else
+      depth_outputs_cache.try_emplace(event_id, target, Dimensions(width, height));
   }
-  max_dimensions.try_emplace(action->eventId, width, height);
+  max_dimensions.try_emplace(event_id, width, height);
 }
 
 void RenderDocTexturePreviewService::calculate_action_context(const ActionDescription *action, bool &copy, bool &clear, bool &compute) const {
-  copy = static_cast<bool>(action->flags & (ActionFlags::Copy | ActionFlags::Resolve | ActionFlags::Present));
-  clear = static_cast<bool>(action->flags & ActionFlags::Clear);
-  compute = static_cast<bool>(action->flags & ActionFlags::Dispatch) && controller->GetPipelineState().GetShader(ShaderStage::Compute) != ResourceId();
+  copy = action && action->flags & (ActionFlags::Copy | ActionFlags::Resolve | ActionFlags::Present);
+  clear = action && action->flags & ActionFlags::Clear;
+  compute = action && action->flags & ActionFlags::Dispatch && controller->GetPipelineState().GetShader(ShaderStage::Compute) != ResourceId();
 }
 
 rdcarray<Descriptor> RenderDocTexturePreviewService::get_output_targets(const ActionDescription *action) const {
   bool copy, clear, compute;
   calculate_action_context(action, copy, clear, compute);
-  if(copy || clear)
+  if(action && (copy || clear))
     return {create_descriptor(action->copyDestination)};
 
   if(compute)
@@ -55,7 +58,7 @@ rdcarray<Descriptor> RenderDocTexturePreviewService::get_output_targets(const Ac
 
   const rdcarray<Descriptor> outputs = controller->GetPipelineState().GetOutputTargets();
 
-  if(outputs.isEmpty() && action->flags & ActionFlags::Present) {
+  if(action && outputs.isEmpty() && action->flags & ActionFlags::Present) {
     if(action->copyDestination != ResourceId())
       return {create_descriptor(action->copyDestination)};
 
@@ -75,25 +78,15 @@ Descriptor RenderDocTexturePreviewService::get_depth_target(const ActionDescript
 
   if(copy || clear || compute)
     return {};
-  else
-    return controller->GetPipelineState().GetDepthTarget();
+  return controller->GetPipelineState().GetDepthTarget();
 }
 
-int32_t RenderDocTexturePreviewService::get_width(uint32_t event_id, std::size_t output_index) const {
-  return outputs_cache.at(event_id).at(output_index).second.width;
-}
-
-int32_t RenderDocTexturePreviewService::get_height(uint32_t event_id, std::size_t output_index) const {
-  return outputs_cache.at(event_id).at(output_index).second.height;
-}
-
-std::vector<rd::Wrapper<model::RdcWindowOutputData>> RenderDocTexturePreviewService::get_buffers(const ActionDescription *action) {
-  const uint32_t event_id = action->eventId;
-  if (outputs_cache.find(event_id) == outputs_cache.end()) {
-    calculate_dimensions(action);
+rd::Wrapper<model::RdcTextureOutputs> RenderDocTexturePreviewService::get_outputs(const ActionDescription *action, uint32_t event_id) {
+  if (max_dimensions.find(event_id) == max_dimensions.end()) {
+    calculate_dimensions(action, event_id);
   }
-  if (outputs_cache[event_id].empty())
-    return {};
+  if (max_dimensions[event_id].width == 0 && max_dimensions[event_id].height == 0)
+    return rd::Wrapper<model::RdcTextureOutputs>(nullptr);
 
   const auto max_width = max_dimensions.at(event_id).width;
   const auto max_height = max_dimensions.at(event_id).height;
@@ -101,15 +94,24 @@ std::vector<rd::Wrapper<model::RdcWindowOutputData>> RenderDocTexturePreviewServ
   const auto window_data = CreateHeadlessWindowingData(max_width, max_height);
   const auto &output = controller->CreateOutput(window_data, ReplayOutputType::Texture);
 
-  std::vector<rd::Wrapper<model::RdcWindowOutputData>> result;
-  result.reserve(outputs_cache[event_id].size());
+  std::vector<rd::Wrapper<model::RdcWindowOutputData>> color_outs;
+  if (const auto &outputs_it = color_outputs_cache.find(event_id); outputs_it != color_outputs_cache.end()) {
+    color_outs.reserve(color_outputs_cache[event_id].size());
 
-  for (const auto &[desc, dim] : outputs_cache[event_id]) {
+    for (const auto &[desc, dim] : color_outputs_cache[event_id]) {
+      const std::vector<uint8_t> buffer = ArrayUtils::CopyToVector(output->DrawThumbnail(dim.width, dim.height, desc.resource, {}, CompType::Typeless));
+      color_outs.emplace_back(rd::wrapper::make_wrapper<model::RdcWindowOutputData>(dim.width, dim.height, buffer));
+    }
+  }
+
+  rd::Wrapper<model::RdcWindowOutputData> depth_out(nullptr);
+  if (const auto &depth_it = depth_outputs_cache.find(event_id); depth_it != depth_outputs_cache.end()) {
+    const auto &[desc, dim] = depth_it->second;
     const std::vector<uint8_t> buffer = ArrayUtils::CopyToVector(output->DrawThumbnail(dim.width, dim.height, desc.resource, {}, CompType::Typeless));
-    result.emplace_back(rd::wrapper::make_wrapper<model::RdcWindowOutputData>(dim.width, dim.height, buffer));
+    depth_out = rd::wrapper::make_wrapper<model::RdcWindowOutputData>(dim.width, dim.height, buffer);
   }
 
   output->Shutdown();
-  return result;
+  return rd::wrapper::make_wrapper<model::RdcTextureOutputs>(color_outs, depth_out);
 }
 }

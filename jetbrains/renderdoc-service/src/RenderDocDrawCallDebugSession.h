@@ -9,7 +9,7 @@
 #include <memory>
 
 enum class ShaderStage : uint8_t;
-class ActionDescription;
+struct ActionDescription;
 struct ShaderReflection;
 struct IReplayController;
 class ShaderDebugTrace;

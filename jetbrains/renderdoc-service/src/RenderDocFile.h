@@ -3,7 +3,7 @@
 #include "RenderDocModel/RdcCaptureFile.Generated.h"
 #include "RenderDocReplay.h"
 
-class ICaptureFile;
+struct ICaptureFile;
 namespace jetbrains::renderdoc {
 
 class RenderDocFile : public model::RdcCaptureFile {
