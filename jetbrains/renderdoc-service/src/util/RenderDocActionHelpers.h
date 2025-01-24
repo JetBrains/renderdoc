@@ -15,6 +15,7 @@ model::RdcActionFlags map_flags(const ActionFlags flags);
 std::vector<rd::Wrapper<model::RdcAction>> get_actions_recursive(const rdcarray<ActionDescription> &descriptions, const SDFile &file);
 const ActionDescription *get_next_action(const ActionDescription *current);
 const ActionDescription *find_action(const ActionDescription *begin, const std::function<bool(const ActionDescription &)> &predicate);
+const ActionDescription *get_action(const rdcarray<ActionDescription> &actions, uint32_t event_id);
 bool is_draw_call(const ActionDescription &action);
 }
 

@@ -424,6 +424,237 @@ class RenderDocClientWindowsTest {
             ), frames)
         }
 
+        private suspend fun assertVerticesTable(modelLifetime: Lifetime, capture: RdcCapture) {
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+
+            run {
+                val vertices = withContext(rdDispatcher) {
+                    capture.getVertexStageInOutputs.startSuspending(modelLifetime, 787)
+                }
+                assertEquals(null, vertices)
+            }
+
+            run {
+                val vertices = withContext(rdDispatcher) {
+                    capture.getVertexStageInOutputs.startSuspending(modelLifetime, 97)
+                }
+                assertEquals(null, vertices)
+            }
+
+            run {
+                val vertices = withContext(rdDispatcher) {
+                    capture.getVertexStageInOutputs.startSuspending(modelLifetime, 112)
+                }
+                assertNotEquals(null, vertices)
+                assertEquals(listOf(22561u, 22563u, 22562u, 22562u, 22563u, 22564u), vertices?.input_indices)
+                assertEquals(listOf("POSITION", "COLOR", "TEXCOORD0"),vertices?.input_columns)
+                assertEquals(listOf("SV_POSITION", "COLOR", "TEXCOORD0", "TEXCOORD1"), vertices?.output_columns)
+                assertEquals(
+                    listOf(
+                        listOf(-6.713867E-4f, 761.333f, 0.00f),
+                        listOf(0.09803922f, 0.09803922f, 0.09803922f, 1.00f),
+                        listOf(0.00f, 0.00f)
+                    ), vertices?.inputs?.get(0))
+
+                assertEquals(
+                    listOf(
+                        listOf(1356.6663f, 0.00f, 0.00f),
+                        listOf(0.09803922f, 0.09803922f, 0.09803922f, 1.00f),
+                        listOf(1.00f, 1.00f)
+                    ), vertices?.inputs?.get(5))
+
+                assertEquals(
+                    listOf(
+                        listOf(0.9999999f, -1.00f, 0.990099f, 1.00f),
+                        listOf(0.09803922f, 0.09803922f, 0.09803922f, 1.00f),
+                        listOf(1.00f, 0.00f),
+                        listOf(0.93749994f, 0.93750006f)
+                    ), vertices?.outputs?.get(2))
+
+                assertEquals(
+                    listOf(
+                        listOf(0.9999999f, -1.00f, 0.990099f, 1.00f),
+                        listOf(0.09803922f, 0.09803922f, 0.09803922f, 1.00f),
+                        listOf(1.00f, 0.00f),
+                        listOf(0.93749994f, 0.93750006f)
+                    ), vertices?.outputs?.get(3))
+            }
+
+            run {
+                val vertices = withContext(rdDispatcher) {
+                    capture.getVertexStageInOutputs.startSuspending(modelLifetime, 677)
+                }
+                assertNotEquals(null, vertices)
+                assertEquals(listOf(0u, 1u, 2u), vertices?.input_indices)
+                assertEquals(listOf(0u, 1u, 2u), vertices?.output_indices)
+                assertTrue(vertices?.input_columns?.isEmpty() ?: false)
+                assertEquals(listOf("SV_POSITION", "TEXCOORD"), vertices?.output_columns)
+                assertEquals(listOf<List<Float>>(emptyList(), emptyList(), emptyList()), vertices?.inputs)
+                assertEquals(listOf(
+                    listOf(listOf(-1.0f, -1.0f, 1.0f, 1.0f), listOf(0.0f, 1.0f)),
+                    listOf(listOf(3.0f, -1.0f, 1.0f, 1.0f), listOf(2.0f, 1.0f)),
+                    listOf(listOf(-1.0f, 3.0f, 1.0f, 1.0f), listOf(0.0f, -1.0f))
+                ), vertices?.outputs)
+            }
+
+            run {
+                val vertices = withContext(rdDispatcher) {
+                    capture.getVertexStageInOutputs.startSuspending(modelLifetime, 715)
+                }
+                assertNotEquals(null, vertices)
+                assertEquals(2304, vertices?.input_indices?.size)
+                assertEquals(2304, vertices?.output_indices?.size)
+                assertEquals(vertices?.input_indices, vertices?.output_indices)
+                assertEquals(177u, vertices?.input_indices?.get(0))
+                assertEquals(386u, vertices?.input_indices?.get(1))
+                assertEquals(298u, vertices?.input_indices?.get(1442))
+                assertEquals(510u, vertices?.input_indices?.get(2303))
+
+                assertEquals(listOf("POSITION", "NORMAL", "TEXCOORD0"), vertices?.input_columns)
+                assertEquals(listOf("SV_POSITION", "COLOR"), vertices?.output_columns)
+
+                assertEquals(2304, vertices?.inputs?.size)
+                assertEquals(2304, vertices?.outputs?.size)
+
+                assertEquals(listOf(
+                    listOf(0.19199951f, -0.45026365f, -0.09450744f),
+                    listOf(0.3828188f, -0.9043397f, -0.18873115f),
+                    listOf(0.4259613f, 0.17526756f)
+                ), vertices?.inputs?.get(0))
+
+                assertEquals(listOf(
+                    listOf(0.090518795f, 0.27555177f, -0.40696776f),
+                    listOf(0.18049115f, 0.5502449f, -0.81526285f),
+                    listOf(0.28369975f, 0.6757817f)
+                ), vertices?.inputs?.get(2227))
+
+                assertEquals(listOf(
+                    listOf(-0.28883544f, 0.2879004f, -0.28883544f),
+                    listOf(-0.5770534f, 0.5779435f, -0.5770534f),
+                    listOf(0.12398553f, 0.68360907f)
+                ), vertices?.inputs?.get(2303))
+
+                assertEquals(listOf(
+                    listOf(-0.89212215f, 0.017701358f, 0.0561663f, 5.593367f),
+                    listOf(0.6914094f, 0.047830164f, 0.40563443f)
+                ), vertices?.outputs?.get(0))
+
+                assertEquals(listOf(
+                    listOf(-0.8177031f, -0.5423268f, 0.056164134f, 6.0209064f),
+                    listOf(0.21132487f, 0.21132487f, 0.21132484f)
+                ), vertices?.outputs?.get(227))
+
+                assertEquals(listOf(
+                    listOf(-0.6705234f, -1.33369f, 0.056168433f, 5.1719327f),
+                    listOf(0.6834294f, 0.9274427f, 0.6834294f)
+                ), vertices?.outputs?.get(524))
+            }
+        }
+
+        private suspend fun assertTexturesOutputs(modelLifetime: Lifetime, capture: RdcCapture) {
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+
+            val outputsRoot = withContext(rdDispatcher) {
+                capture.getTextureRGBBuffer.startSuspending(modelLifetime, -1)
+            }
+
+            run {
+                val outputsLast = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1671)
+                }
+                assertEquals(outputsRoot, outputsLast)
+                assertEquals(1, outputsRoot?.colorOutputs?.size)
+                assertNull(outputsRoot?.depthOutput)
+                assertEquals(2035, outputsRoot?.colorOutputs?.get(0)?.width)
+                assertEquals(1142, outputsRoot?.colorOutputs?.get(0)?.height)
+            }
+
+            run {
+                val outputsGrouped = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 97)
+                }
+                val outputsLeaf = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1638)
+                }
+                assertEquals(outputsGrouped, outputsLeaf)
+                assertEquals(1, outputsGrouped?.colorOutputs?.size)
+                assertNotNull(outputsGrouped?.depthOutput)
+                assertEquals(2035, outputsRoot?.colorOutputs?.get(0)?.width)
+                assertEquals(1142, outputsRoot?.colorOutputs?.get(0)?.height)
+            }
+
+            run {
+                val outputs = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 0)
+                }
+                assertEquals(1, outputs?.colorOutputs?.size)
+                assertNotNull(outputs?.depthOutput)
+                assertEquals(2035, outputs?.colorOutputs?.get(0)?.width)
+                assertEquals(1142, outputs?.colorOutputs?.get(0)?.height)
+            }
+
+            run {
+                val outputsGrouped = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 543)
+                }
+                assertEquals(1, outputsGrouped?.colorOutputs?.size)
+                assertNotNull(outputsGrouped?.depthOutput)
+                assertEquals(2032, outputsGrouped?.colorOutputs?.get(0)?.width)
+                assertEquals(1070, outputsGrouped?.colorOutputs?.get(0)?.height)
+            }
+
+            val outputsGrouped = withContext(rdDispatcher) {
+                capture.getTextureRGBBuffer.startSuspending(modelLifetime, 696)
+            }
+
+            run {
+                val outputsGrouped1 = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 739)
+                }
+                assertEquals(outputsGrouped, outputsGrouped1)
+                assertEquals(1, outputsGrouped?.colorOutputs?.size)
+                assertNotNull(outputsGrouped?.depthOutput)
+                assertEquals(2032, outputsGrouped?.colorOutputs?.get(0)?.width)
+                assertEquals(1070, outputsGrouped?.colorOutputs?.get(0)?.height)
+            }
+
+            run {
+                val outputsLeaf = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 715)
+                }
+                assertEquals(1, outputsLeaf?.colorOutputs?.size)
+                assertNotNull(outputsLeaf?.depthOutput)
+                assertEquals(2032, outputsLeaf?.colorOutputs?.get(0)?.width)
+                assertEquals(1070, outputsLeaf?.colorOutputs?.get(0)?.height)
+            }
+
+            run {
+                val outputsGrouped1 = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 697)
+                }
+                assertNotEquals(outputsGrouped1, outputsGrouped)
+                assertEquals(1, outputsGrouped1?.colorOutputs?.size)
+                assertNotNull(outputsGrouped1?.depthOutput)
+                assertEquals(2032, outputsGrouped1?.colorOutputs?.get(0)?.width)
+                assertEquals(1070, outputsGrouped1?.colorOutputs?.get(0)?.height)
+
+                val outputsEndEvent = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 738)
+                }
+                assertEquals(outputsGrouped1, outputsEndEvent)
+            }
+
+            run {
+                val outputsLeaf = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1244)
+                }
+                assertEquals(1, outputsLeaf?.colorOutputs?.size)
+                assertNotNull(outputsLeaf?.depthOutput)
+                assertEquals(2032, outputsLeaf?.colorOutputs?.get(0)?.width)
+                assertEquals(1070, outputsLeaf?.colorOutputs?.get(0)?.height)
+            }
+        }
+
         suspend fun testRenderDocClient(lifetime: Lifetime, capture: RdcCapture) {
             val breakpoints = listOf(
                 RdcSourceBreakpoint("Assets/Cube Shader.shader", 44u),
@@ -446,6 +677,9 @@ class RenderDocClientWindowsTest {
             assertDebugPixelStepByStepShaderLab(lifetime, capture)
             assertTryDebugPixelStepByStep(lifetime, capture, breakpoints)
             assertTryDebugPixelWithBreakpoints(lifetime, capture, breakpoints)
+
+            assertVerticesTable(lifetime, capture)
+            assertTexturesOutputs(lifetime, capture)
         }
     }
 }
