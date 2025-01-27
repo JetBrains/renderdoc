@@ -2,59 +2,133 @@ import com.jetbrains.rd.framework.protocolOrThrow
 import com.jetbrains.rd.util.lifetime.Lifetime
 import com.jetbrains.rd.util.lifetime.waitTermination
 import com.jetbrains.rd.util.reactive.fire
-import com.jetbrains.rd.util.reactive.valueOrThrow
 import com.jetbrains.rd.util.threading.coroutines.adviseSuspend
 import com.jetbrains.rd.util.threading.coroutines.asCoroutineDispatcher
 import com.jetbrains.renderdoc.rdClient.model.*
 import kotlinx.coroutines.*
 import org.junit.jupiter.api.Assertions.*
-import kotlin.io.path.Path
-import kotlin.io.path.name
 
 
 class RenderDocClientWindowsTest {
     companion object {
-        private suspend fun assertDebugVertexStepByStepDisassembly(modelLifetime: Lifetime, capture: RdcCapture) {
-            val sessionLifetime = modelLifetime.createNested()
+        private suspend fun assertSessionFinishesImmediately(modelLifetime: Lifetime, capture: RdcCapture, input: Any, debugSingleCall: Boolean) {
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val sessionLifetime = modelLifetime.createNested()
             val debugSession = withContext(rdDispatcher) {
-                capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(784u, 5039u, emptyList()))
+                when (input) {
+                    is RdcDebugVertexInput -> (if (debugSingleCall) capture.debugVertex else capture.tryDebugVertex).startSuspending(sessionLifetime, input)
+                    is RdcDebugPixelInput -> (if (debugSingleCall) capture.debugPixel else capture.tryDebugPixel).startSuspending(sessionLifetime, input)
+                    else -> fail("Unexpected input type detected")
+                }
             }
-            assertTrue(debugSession.drawCallSession.valueOrThrow.sourceFiles.isEmpty())
 
-            val expectedLineNumbers = mutableListOf(15u)
-            val lineNumbers = mutableListOf<UInt>()
+            val frames = mutableListOf<RdcDebugStack>()
             withContext(rdDispatcher) {
                 debugSession.currentStack.adviseSuspend(sessionLifetime, rdDispatcher) {
                     if (it != null) {
-                        lineNumbers.add(it.lineStart)
+                        frames.add(it)
                     } else {
                         sessionLifetime.terminate()
                     }
                 }
-                repeat(106) {
-                    debugSession.stepOver.fire()
-                    expectedLineNumbers.add(it.toUInt() + 16u)
-                }
-                repeat(17) {
-                    debugSession.stepInto.fire()
-                    expectedLineNumbers.add(it.toUInt() + 163u)
-                }
-                debugSession.stepInto.fire()
             }
 
             sessionLifetime.waitTermination()
 
-            assertEquals(expectedLineNumbers, lineNumbers)
+            assertEquals(emptyList<RdcDebugStack>(), frames)
+        }
+
+        private suspend fun assertDebugVertexStepByStepDisassembly(modelLifetime: Lifetime, capture: RdcCapture) {
+            // instantly finishing sessions
+            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugVertexInput(0u, 0u, emptyList()), true)
+
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            run {
+                val sessionLifetime = modelLifetime.createNested()
+                val debugSession = withContext(rdDispatcher) {
+                    capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(784u, 0u, emptyList()))
+                }
+
+                val drawCall = debugSession.drawCallSession.value
+                assertNotNull(drawCall)
+                assertTrue(drawCall!!.sourceFiles.isEmpty())
+
+                val expectedLineNumbers = mutableListOf(15u)
+                val lineNumbers = mutableListOf<UInt>()
+                withContext(rdDispatcher) {
+                    debugSession.currentStack.adviseSuspend(sessionLifetime, rdDispatcher) {
+                        if (it != null) {
+                            lineNumbers.add(it.lineStart)
+                        } else {
+                            sessionLifetime.terminate()
+                        }
+                    }
+                    repeat(106) {
+                        debugSession.stepOver.fire()
+                        expectedLineNumbers.add(it.toUInt() + 16u)
+                    }
+                    repeat(17) {
+                        debugSession.stepInto.fire()
+                        expectedLineNumbers.add(it.toUInt() + 163u)
+                    }
+                    debugSession.stepInto.fire()
+                }
+
+                sessionLifetime.waitTermination()
+
+                assertEquals(expectedLineNumbers, lineNumbers)
+            }
+
+            run {
+                val sessionLifetime = modelLifetime.createNested()
+                val debugSession = withContext(rdDispatcher) {
+                    capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(784u, 5039u, emptyList()))
+                }
+
+                val drawCall = debugSession.drawCallSession.value
+                assertNotNull(drawCall)
+                assertTrue(drawCall!!.sourceFiles.isEmpty())
+
+                val expectedLineNumbers = mutableListOf(15u)
+                val lineNumbers = mutableListOf<UInt>()
+                withContext(rdDispatcher) {
+                    debugSession.currentStack.adviseSuspend(sessionLifetime, rdDispatcher) {
+                        if (it != null) {
+                            lineNumbers.add(it.lineStart)
+                        } else {
+                            sessionLifetime.terminate()
+                        }
+                    }
+                    repeat(21) {
+                        debugSession.stepOver.fire()
+                        expectedLineNumbers.add(it.toUInt() + 16u)
+                    }
+                    repeat(58) {
+                        debugSession.stepInto.fire()
+                        expectedLineNumbers.add(it.toUInt() + 122u)
+                    }
+                    debugSession.stepInto.fire()
+                }
+
+                sessionLifetime.waitTermination()
+
+                assertEquals(expectedLineNumbers, lineNumbers)
+            }
         }
 
         private suspend fun assertDebugVertexStepByStepShaderLab(modelLifetime: Lifetime, capture: RdcCapture) {
+            // instantly finishing sessions
+            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugVertexInput(66u, 10000u, emptyList()), true)
+
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
-                capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(732u, 0u, emptyList()))
+                capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(732u, 30u, emptyList()))
             }
-            assertEquals(debugSession.drawCallSession.valueOrThrow.sourceFiles[0].name, "unnamed_shader")
+
+            val drawCall = debugSession.drawCallSession.value
+            assertNotNull(drawCall)
+            assertEquals("unnamed_shader", drawCall!!.sourceFiles[0].name)
 
             val frames = mutableListOf<RdcDebugStack>()
             withContext(rdDispatcher) {
@@ -91,10 +165,13 @@ class RenderDocClientWindowsTest {
         }
 
         private suspend fun assertTryDebugVertexStepByStep(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
+            // instantly finishing sessions
+            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugVertexInput(0u, 15000u, breakpoints), false)
+
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
-                capture.tryDebugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(0u, 0u, breakpoints))
+                capture.tryDebugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(0u, 35u, breakpoints))
             }
 
             val frames = mutableListOf<RdcDebugStack>()
@@ -189,11 +266,158 @@ class RenderDocClientWindowsTest {
             ), frames)
         }
 
+        private suspend fun assertTryDebugVertexStepOver(modelLifetime: Lifetime, capture: RdcCapture, vertId: UInt, breakpoints: List<RdcSourceBreakpoint>) {
+            val sessionLifetime = modelLifetime.createNested()
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val debugSession = withContext(rdDispatcher) {
+                capture.tryDebugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(0u, vertId, breakpoints))
+            }
+
+            val frames = mutableListOf<RdcDebugStack>()
+            withContext(rdDispatcher) {
+                debugSession.currentStack.adviseSuspend(sessionLifetime, rdDispatcher) {
+                    if (it != null) {
+                        frames.add(it)
+                    } else {
+                        sessionLifetime.terminate()
+                    }
+                }
+
+                // event 715
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+
+                //event 732
+                debugSession.stepInto.fire()
+
+                // event 749
+                debugSession.stepOver.fire()
+
+                // event 765
+                debugSession.stepOver.fire()
+
+                // event 784
+                debugSession.stepOver.fire()
+
+                debugSession.resume.fire()
+            }
+
+            sessionLifetime.waitTermination()
+            assertEquals(listOf(
+                RdcDebugStack(715u, 0, 0, 883u, 883u, 11u, 45u),
+                RdcDebugStack(715u, 19, 0, 883u, 883u, 1u, 45u),
+                RdcDebugStack(715u, 20, 0, 884u, 884u, 13u, 28u),
+                RdcDebugStack(715u, 21, 0, 884u, 884u, 13u, 34u),
+                RdcDebugStack(715u, 22, 0, 885u, 885u, 1u, 10u),
+                RdcDebugStack(715u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(732u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(749u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(765u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(784u, -1, -1, 0u, 0u, 0u, 0u),
+            ), frames)
+        }
+
+        private suspend fun assertTryDebugUncommonVertexStepByStep(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
+            val sessionLifetime = modelLifetime.createNested()
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val debugSession = withContext(rdDispatcher) {
+                capture.tryDebugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(0u, 100u, breakpoints))
+            }
+
+            val frames = mutableListOf<RdcDebugStack>()
+            withContext(rdDispatcher) {
+                debugSession.currentStack.adviseSuspend(sessionLifetime, rdDispatcher) {
+                    if (it != null) {
+                        frames.add(it)
+                    } else {
+                        sessionLifetime.terminate()
+                    }
+                }
+
+                // event 715
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+
+                debugSession.stepInto.fire()
+
+                // event 732, no vertex 100
+                debugSession.stepInto.fire()
+
+                // event 749, no vertex 100
+                debugSession.stepInto.fire()
+
+                //event 765
+                debugSession.stepInto.fire()
+                debugSession.stepInto.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+
+                debugSession.stepInto.fire()
+
+                // event 784
+                debugSession.stepInto.fire()
+                debugSession.stepInto.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.resume.fire()
+            }
+
+            sessionLifetime.waitTermination()
+            assertEquals(listOf(
+                RdcDebugStack(715u, 0, 0, 883u, 883u, 11u, 45u),
+                RdcDebugStack(715u, 19, 0, 883u, 883u, 1u, 45u),
+                RdcDebugStack(715u, 20, 0, 884u, 884u, 13u, 28u),
+                RdcDebugStack(715u, 21, 0, 884u, 884u, 13u, 34u),
+                RdcDebugStack(715u, 22, 0, 885u, 885u, 1u, 10u),
+                RdcDebugStack(715u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(732u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(749u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(765u, -1, -1, 0u, 0u, 0u, 0u),
+                RdcDebugStack(765u, 0, 0, 895u, 895u, 19u, 58u),
+                RdcDebugStack(765u, 7, 0, 897u, 897u, 20u, 48u),
+                RdcDebugStack(765u, 8, 0, 897u, 897u, 52u, 73u),
+                RdcDebugStack(765u, 9, 0, 897u, 897u, 20u, 73u),
+                RdcDebugStack(765u, 10, 0, 897u, 897u, 14u, 75u),
+                RdcDebugStack(765u, 11, 0, 897u, 897u, 14u, 92u),
+                RdcDebugStack(765u, 12, 0, 899u, 899u, 1u, 22u),
+                RdcDebugStack(765u, 13, 0, 901u, 901u, 11u, 45u),
+                RdcDebugStack(765u, 33, 0, 901u, 901u, 1u, 45u),
+                RdcDebugStack(765u, 34, 0, 903u, 903u, 1u, 10u),
+                RdcDebugStack(765u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(784u, -1, -1, 0u, 0u, 0u, 0u),
+                RdcDebugStack(784u, 0, -1, 15u, 15u, 0u, 0u),
+                RdcDebugStack(784u, 1, -1, 16u, 16u, 0u, 0u),
+                RdcDebugStack(784u, 2, -1, 17u, 17u, 0u, 0u),
+                RdcDebugStack(784u, 3, -1, 18u, 18u, 0u, 0u),
+            ), frames)
+        }
+
         private suspend fun assertTryDebugVertexWithBreakpoints(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
-                capture.tryDebugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(0u, 0u, breakpoints))
+                capture.tryDebugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(0u, 17u, breakpoints))
             }
 
             val frames = mutableListOf<RdcDebugStack>()
@@ -213,6 +437,7 @@ class RenderDocClientWindowsTest {
 
                 debugSession.removeSourceBreakpoint.fire(RdcSourceBreakpoint("Assets/Cube Shader.shader", 44u))
                 debugSession.removeSourceBreakpoint.fire(RdcSourceBreakpoint("Assets/Cube Shader.shader", 62u))
+                debugSession.removeSourceBreakpoint.fire(RdcSourceBreakpoint("Assets/Waves.shader", 47u))
                 debugSession.addSourceBreakpoint.fire(RdcSourceBreakpoint("Assets/Waves.shader", 53u))
                 debugSession.resume.fire()
                 debugSession.resume.fire()
@@ -245,12 +470,15 @@ class RenderDocClientWindowsTest {
         }
 
         private suspend fun assertDebugPixelStepByStepDisassembly(modelLifetime: Lifetime, capture: RdcCapture) {
+            // instantly finishing sessions
+            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(0u, 0u, 0u, emptyList()), true)
+
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
                 capture.debugPixel.startSuspending(sessionLifetime, RdcDebugPixelInput(1043u, 1133u, 664u, emptyList()))
             }
-            assertTrue(debugSession.drawCallSession.valueOrThrow.sourceFiles.isEmpty())
+            assertTrue(debugSession.drawCallSession.value!!.sourceFiles.isEmpty())
 
             val frames = mutableListOf<RdcDebugStack>()
             withContext(rdDispatcher) {
@@ -277,12 +505,16 @@ class RenderDocClientWindowsTest {
         }
 
         private suspend fun assertDebugPixelStepByStepShaderLab(modelLifetime: Lifetime, capture: RdcCapture) {
+            // instantly finishing sessions
+            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(739u, 826u, 914u, emptyList()), true)
+            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(749u, 826u, 914u, emptyList()), true)
+
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
                 capture.debugPixel.startSuspending(sessionLifetime, RdcDebugPixelInput(732u, 1133u, 664u, emptyList()))
             }
-            assertEquals(debugSession.drawCallSession.valueOrThrow.sourceFiles[0].name, "unnamed_shader")
+            assertEquals("unnamed_shader", debugSession.drawCallSession.value!!.sourceFiles[0].name)
 
             val frames = mutableListOf<RdcDebugStack>()
             withContext(rdDispatcher) {
@@ -312,10 +544,14 @@ class RenderDocClientWindowsTest {
         }
 
         private suspend fun assertTryDebugPixelStepByStep(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
+            // instantly finishing sessions
+            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(0u, 0u, 0u, breakpoints), false)
+            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(0u, 826u, 914u, breakpoints), false)
+
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val debugSession = withContext(rdDispatcher) {
-                capture.tryDebugPixel.startSuspending(sessionLifetime, RdcDebugPixelInput(0u, 921u, 541u, breakpoints))
+                capture.tryDebugPixel.startSuspending(sessionLifetime, RdcDebugPixelInput(0u, 914u, 534u, breakpoints))
             }
 
             val frames = mutableListOf<RdcDebugStack>()
@@ -337,17 +573,25 @@ class RenderDocClientWindowsTest {
 
                 debugSession.stepOver.fire()
 
-                //event 765
+                // event 765
                 debugSession.stepInto.fire()
                 debugSession.stepOver.fire()
 
                 debugSession.stepOver.fire()
 
-                //event 784
+                // event 784
                 debugSession.stepInto.fire()
+                repeat(17) { debugSession.stepOver.fire() }
+
                 debugSession.stepInto.fire()
+
+                // event 811
+                debugSession.stepInto.fire()
+                repeat(18) { debugSession.stepOver.fire() }
                 debugSession.stepOver.fire()
-                debugSession.stepOver.fire()
+
+                // event 824 should be skipped, no (914, 534) pixel in the event
+                debugSession.stepInto.fire()
                 debugSession.resume.fire()
             }
 
@@ -368,8 +612,46 @@ class RenderDocClientWindowsTest {
                 RdcDebugStack(784u, 0, -1, 12u, 12u, 0u, 0u),
                 RdcDebugStack(784u, 1, -1, 13u, 13u, 0u, 0u),
                 RdcDebugStack(784u, 2, -1, 14u, 14u, 0u, 0u),
-                RdcDebugStack(784u, 3, -1, 15u, 15u, 0u, 0u)
+                RdcDebugStack(784u, 3, -1, 15u, 15u, 0u, 0u),
+                RdcDebugStack(784u, 4, -1, 16u, 16u, 0u, 0u),
+                RdcDebugStack(784u, 5, -1, 17u, 17u, 0u, 0u),
+                RdcDebugStack(784u, 6, -1, 18u, 18u, 0u, 0u),
+                RdcDebugStack(784u, 7, -1, 19u, 19u, 0u, 0u),
+                RdcDebugStack(784u, 8, -1, 20u, 20u, 0u, 0u),
+                RdcDebugStack(784u, 9, -1, 21u, 21u, 0u, 0u),
+                RdcDebugStack(784u, 10, -1, 22u, 22u, 0u, 0u),
+                RdcDebugStack(784u, 11, -1, 23u, 23u, 0u, 0u),
+                RdcDebugStack(784u, 12, -1, 24u, 24u, 0u, 0u),
+                RdcDebugStack(784u, 13, -1, 25u, 25u, 0u, 0u),
+                RdcDebugStack(784u, 14, -1, 26u, 26u, 0u, 0u),
+                RdcDebugStack(784u, 15, -1, 27u, 27u, 0u, 0u),
+                RdcDebugStack(784u, 16, -1, 28u, 28u, 0u, 0u),
+                RdcDebugStack(784u, -1, -1, 0u, 0u, 0u, 0u),
 
+                RdcDebugStack(811u, -1, -1, 0u, 0u, 0u, 0u),
+                RdcDebugStack(811u, 0, -1, 10u, 10u, 0u, 0u),
+                RdcDebugStack(811u, 1, -1, 11u, 11u, 0u, 0u),
+                RdcDebugStack(811u, 2, -1, 12u, 12u, 0u, 0u),
+                RdcDebugStack(811u, 3, -1, 13u, 13u, 0u, 0u),
+                RdcDebugStack(811u, 4, -1, 14u, 14u, 0u, 0u),
+                RdcDebugStack(811u, 5, -1, 15u, 15u, 0u, 0u),
+                RdcDebugStack(811u, 6, -1, 16u, 16u, 0u, 0u),
+                RdcDebugStack(811u, 7, -1, 17u, 17u, 0u, 0u),
+                RdcDebugStack(811u, 8, -1, 18u, 18u, 0u, 0u),
+                RdcDebugStack(811u, 9, -1, 19u, 19u, 0u, 0u),
+                RdcDebugStack(811u, 10, -1, 20u, 20u, 0u, 0u),
+                RdcDebugStack(811u, 11, -1, 21u, 21u, 0u, 0u),
+                RdcDebugStack(811u, 12, -1, 22u, 22u, 0u, 0u),
+                RdcDebugStack(811u, 13, -1, 23u, 23u, 0u, 0u),
+                RdcDebugStack(811u, 14, -1, 24u, 24u, 0u, 0u),
+                RdcDebugStack(811u, 15, -1, 25u, 25u, 0u, 0u),
+                RdcDebugStack(811u, 16, -1, 26u, 26u, 0u, 0u),
+                RdcDebugStack(811u, 17, -1, 27u, 27u, 0u, 0u),
+                RdcDebugStack(811u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(824u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(837u, -1, -1, 0u, 0u, 0u, 0u),
             ), frames)
         }
 
@@ -549,6 +831,57 @@ class RenderDocClientWindowsTest {
                     listOf(0.6834294f, 0.9274427f, 0.6834294f)
                 ), vertices?.outputs?.get(524))
             }
+
+            run {
+                val vertices = withContext(rdDispatcher) {
+                    capture.getVertexStageInOutputs.startSuspending(modelLifetime, 765)
+                }
+                assertNotEquals(null, vertices)
+                val verticesGrouped = withContext(rdDispatcher) {
+                    capture.getVertexStageInOutputs.startSuspending(modelLifetime, 739)
+                }
+                assertEquals(vertices, verticesGrouped)
+                assertEquals(600, vertices?.input_indices?.size)
+                assertEquals(600, vertices?.output_indices?.size)
+                assertEquals(vertices?.input_indices, vertices?.output_indices)
+                assertEquals(9u, vertices?.input_indices?.get(0))
+                assertEquals(21u, vertices?.input_indices?.get(1))
+                assertEquals(59u, vertices?.input_indices?.get(526))
+                assertEquals(60u, vertices?.input_indices?.get(530))
+
+                assertEquals(listOf("POSITION", "NORMAL"), vertices?.input_columns)
+                assertEquals(listOf("SV_POSITION"), vertices?.output_columns)
+
+                assertEquals(600, vertices?.inputs?.size)
+                assertEquals(600, vertices?.outputs?.size)
+
+                assertEquals(listOf(
+                    listOf(-4.0000005f, -1.110223E-16f, 5f),
+                    listOf(0f, 1f, 0f)
+                ), vertices?.inputs?.get(0))
+
+                assertEquals(listOf(
+                    listOf(0f, -6.6613384E-17f, 3f),
+                    listOf(0f, 1f, 0f),
+                ), vertices?.inputs?.get(123))
+
+                assertEquals(listOf(
+                    listOf(0.99999994f, -6.6613384E-17f, 3f),
+                    listOf(0f, 1f, 0f)
+                ), vertices?.inputs?.get(599))
+
+                assertEquals(listOf(
+                    listOf(5.9477596f, 0.72631633f, 0.056128737f, 13.007547f),
+                ), vertices?.outputs?.get(0))
+
+                assertEquals(listOf(
+                    listOf(2.5044744f, 3.0240726f, 0.056139242f, 10.933749f),
+                ), vertices?.outputs?.get(123))
+
+                assertEquals(listOf(
+                    listOf(2.034446f, 2.7630925f, 0.05614412f, 9.971612f),
+                ), vertices?.outputs?.get(599))
+            }
         }
 
         private suspend fun assertTexturesOutputs(modelLifetime: Lifetime, capture: RdcCapture) {
@@ -665,12 +998,16 @@ class RenderDocClientWindowsTest {
                 RdcSourceBreakpoint("Assets/ShaderForSphere.shader", 20u),
                 RdcSourceBreakpoint("Assets/mult.hlsl", 3u),
                 RdcSourceBreakpoint("Assets/mult.hlsl", 7u),
-                RdcSourceBreakpoint("Assets/Waves.shader", 58u)
+                RdcSourceBreakpoint("Assets/Waves.shader", 47u),
+                RdcSourceBreakpoint("Assets/Waves.shader", 58u),
             )
 
             assertDebugVertexStepByStepDisassembly(lifetime, capture)
             assertDebugVertexStepByStepShaderLab(lifetime, capture)
+            assertTryDebugVertexStepOver(lifetime, capture, 35u, breakpoints)
+            assertTryDebugVertexStepOver(lifetime, capture, 100u, breakpoints)
             assertTryDebugVertexStepByStep(lifetime, capture, breakpoints)
+            assertTryDebugUncommonVertexStepByStep(lifetime, capture, breakpoints)
             assertTryDebugVertexWithBreakpoints(lifetime, capture, breakpoints)
 
             assertDebugPixelStepByStepDisassembly(lifetime, capture)

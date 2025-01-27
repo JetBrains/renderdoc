@@ -281,7 +281,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("name", string)
         }
 
-        val rdcDrawCallDebugSession = classdef("rdcDrawCallDebugSession") {
+        val rdcDrawCallDebugSession = structdef("rdcDrawCallDebugSession") {
             field("debugTrace", rdcDebugTrace)
             field("disassembly", rdcSourceFile.nullable)
             field("sourceFiles", array(rdcSourceFile))
@@ -299,7 +299,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
         }
 
         val rdcDebugSession = classdef("rdcDebugSession") {
-            property("drawCallSession", rdcDrawCallDebugSession)
+            property("drawCallSession", rdcDrawCallDebugSession.nullable)
             property("stageInfo", rdcStageInfo.nullable)
             property("currentStack", rdcDebugStack.nullable)
 

@@ -35,7 +35,7 @@ class RenderDocDebugSession : public model::RdcDebugSession  {
 
 public:
   RenderDocDebugSession(const rd::Lifetime& session_lifetime, const RenderDocReplay *replay, rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session, const ShaderStage &stage, DebugInput input, bool is_draw_call_debug);
-  std::vector<rd::Wrapper<model::RdcSourceFile>> const & get_sourceFiles() const;
+  std::vector<rd::Wrapper<model::RdcSourceFile>> get_sourceFiles() const;
   void step_into() const;
   void step_over() const;
   void resume() const;
@@ -47,7 +47,7 @@ public:
 
 private:
   bool step_to_next_draw_call() const;
-  void resume_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func) const;
+  void resume_to_next_not_null_stack() const;
   void step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, bool step_over= false) const;
 };
 
