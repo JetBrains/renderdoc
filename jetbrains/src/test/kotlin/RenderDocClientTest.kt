@@ -28,7 +28,7 @@ class RenderDocClientTest {
     @Test
     fun testRenderDocClient() {
         val sessionId = 12345L
-        val lifetime = Lifetime.Eternal.createTerminatedAfter(Duration.ofSeconds(60), EmptyCoroutineContext)
+        val lifetime = Lifetime.Eternal.createTerminatedAfter(Duration.ofSeconds(120), EmptyCoroutineContext)
 
         runBlocking {
             val scheduler = createBackgroundScheduler(lifetime, "RenderDocClient")

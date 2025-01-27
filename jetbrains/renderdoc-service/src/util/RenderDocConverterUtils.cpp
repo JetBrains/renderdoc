@@ -23,10 +23,13 @@ rd::Wrapper<model::RdcSourceVariableMapping> RenderDocConverterUtils::convertSou
       mapping.rows, mapping.columns, mapping.offset, mapping.signatureIndex, ArrayUtils::CopyToVector(mapping.variables, convertVariableReference));
 }
 
-rd::Wrapper<model::RdcDebugTrace> RenderDocConverterUtils::convertDebugTrace(const ShaderDebugTrace &trace) {
-  return model::RdcDebugTrace(static_cast<model::RdcShaderStage>(trace.stage), ArrayUtils::CopyToVector(trace.inputs, convertShaderVariable),
-    ArrayUtils::CopyToVector(trace.constantBlocks, convertShaderVariable), ArrayUtils::CopyToVector(trace.readOnlyResources, convertShaderVariable),
-    ArrayUtils::CopyToVector(trace.readWriteResources, convertShaderVariable), ArrayUtils::CopyToVector(trace.samplers, convertShaderVariable), ArrayUtils::CopyToVector(trace.sourceVars, convertSourceMapping));
+rd::Wrapper<model::RdcDebugTrace> RenderDocConverterUtils::convertDebugTrace(const ShaderDebugTrace *trace) {
+  if (!trace) {
+    throw std::invalid_argument("ShaderDebugTrace should be not-null");
+  }
+  return model::RdcDebugTrace(static_cast<model::RdcShaderStage>(trace->stage), ArrayUtils::CopyToVector(trace->inputs, convertShaderVariable),
+    ArrayUtils::CopyToVector(trace->constantBlocks, convertShaderVariable), ArrayUtils::CopyToVector(trace->readOnlyResources, convertShaderVariable),
+    ArrayUtils::CopyToVector(trace->readWriteResources, convertShaderVariable), ArrayUtils::CopyToVector(trace->samplers, convertShaderVariable), ArrayUtils::CopyToVector(trace->sourceVars, convertSourceMapping));
 }
 
 rd::Wrapper<model::RdcUsedDescriptor> RenderDocConverterUtils::convertDescriptor(const UsedDescriptor &r) {

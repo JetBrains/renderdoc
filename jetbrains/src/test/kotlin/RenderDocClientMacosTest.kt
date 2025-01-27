@@ -23,7 +23,7 @@ class RenderDocClientMacosTest {
             val debugSession = withContext(rdDispatcher) {
                 capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(eventId, 0u, emptyList()))
             }
-            assertEquals("triangle.vert", Path(debugSession.drawCallSession.valueOrThrow.sourceFiles[0].name).name)
+            assertEquals("triangle.vert", Path(debugSession.drawCallSession.value!!.sourceFiles[0].name).name)
 
             val lineNumbers = mutableListOf<UInt>()
             withContext(rdDispatcher) {

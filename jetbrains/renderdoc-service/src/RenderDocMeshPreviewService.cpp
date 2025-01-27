@@ -449,7 +449,7 @@ void RenderDocMeshPreviewService::calculate_vertices(const ActionDescription *ac
   auto is_mesh_dispatch = action->flags & ActionFlags::MeshDispatch;
   auto is_drawcall = action->flags & ActionFlags::Drawcall;
   if (!is_drawcall) {
-    stage_info_cache.try_emplace(action->eventId, std::nullopt);
+    stage_info_cache.try_emplace(action->eventId, rd::Wrapper<model::RdcVertexStageInOutputs>(nullptr));
     return;
   }
 
@@ -480,7 +480,7 @@ void RenderDocMeshPreviewService::calculate_vertices(const ActionDescription *ac
 
   std::vector<uint32_t> in_indices, out_indices;
   std::vector<rd::Wrapper<std::wstring>> in_columns, out_columns;
-  stage_info_cache.try_emplace(action->eventId, std::make_optional<model::RdcVertexStageInOutputs>(
+  stage_info_cache.try_emplace(action->eventId, rd::wrapper::make_wrapper<model::RdcVertexStageInOutputs>(
     translate_buffers_to_floats(input_config, in_columns, in_indices, instance),
     in_columns,
     in_indices,
@@ -490,6 +490,17 @@ void RenderDocMeshPreviewService::calculate_vertices(const ActionDescription *ac
     ));
 }
 
+uint32_t RenderDocMeshPreviewService::get_vertex_index(const ActionDescription *action, uint32_t vertex_id) {
+  if (stage_info_cache.find(action->eventId) == stage_info_cache.end()) {
+    calculate_vertices(action);
+  }
+  const auto &stage_info = stage_info_cache.at(action->eventId);
+  const auto &indices = stage_info ? stage_info->get_input_indices() : std::vector<uint32_t>();
+  if (vertex_id >= indices.size())
+    return ~0U;
+  return stage_info->get_input_indices().at(vertex_id);
+}
+
 rd::Wrapper<model::RdcVertexStageInOutputs> RenderDocMeshPreviewService::get_vertices(const ActionDescription *action) {
   const uint32_t event_id = action->eventId;
   if (stage_info_cache.find(event_id) == stage_info_cache.end()) {
@@ -497,7 +508,7 @@ rd::Wrapper<model::RdcVertexStageInOutputs> RenderDocMeshPreviewService::get_ver
   }
   const auto &stage_info = stage_info_cache.at(event_id);
   if (stage_info.has_value())
-    return { stage_info.value() };
+    return stage_info;
   return rd::Wrapper<model::RdcVertexStageInOutputs>(nullptr);
 }
 

@@ -4,14 +4,49 @@
 #include "renderdoc_service_test_utils.h"
 
 #include <numeric>
+#include <utility>
 
 using namespace jetbrains::renderdoc;
 
+union RdcDebugInput {
+  model::RdcDebugVertexInput vertex;
+  model::RdcDebugPixelInput pixel;
+
+  explicit RdcDebugInput(model::RdcDebugVertexInput &&vertex) : vertex(std::move(vertex)), type(Vertex) {}
+  explicit RdcDebugInput(model::RdcDebugPixelInput &&pixel) : pixel(std::move(pixel)), type(Pixel) {}
+  ~RdcDebugInput() {}
+
+  enum { Vertex, Pixel } type;
+};
+
+void assert_session_finishes_immediately(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, const RdcDebugInput &input, bool debug_single_call) {
+  const auto session_lifetime = lifetime.create_nested();
+  rd::Wrapper<RenderDocDebugSession> debug_session;
+  if (input.type == RdcDebugInput::Vertex) {
+    if (debug_single_call)
+      debug_session = replay->debug_vertex(session_lifetime, input.vertex);
+    else
+      debug_session = replay->try_debug_vertex(session_lifetime, input.vertex);
+  } else {
+    if (debug_single_call)
+      debug_session = replay->debug_pixel(session_lifetime, input.pixel);
+    else
+      debug_session = replay->try_debug_pixel(session_lifetime, input.pixel);
+  }
+
+  const FrameTracker frame_tracker(lifetime, debug_session);
+  assert(frame_tracker.frames == std::vector({rd::Wrapper<model::RdcDebugStack>(nullptr)}));
+}
+
 void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
+  // instantly finishing sessions
+  assert_session_finishes_immediately(lifetime, replay, RdcDebugInput({0, 0, {}}) , true);
+  assert_session_finishes_immediately(lifetime, replay, RdcDebugInput({66, 10000, {}}), true);
 
   // disassembly
   {
-    const auto debug_session = replay->debug_vertex(lifetime, model::RdcDebugVertexInput(784, 5039, {}));
+    const auto session_lifetime = lifetime.create_nested();
+    const auto debug_session = replay->debug_vertex(session_lifetime, model::RdcDebugVertexInput(784, 0, {}));
 
     const LineTracker line_tracker(lifetime, debug_session);
 
@@ -33,9 +68,35 @@ void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wr
     assert(line_tracker.lines == expected_lines);
   }
 
+  // disassembly with another vertex
+  {
+    const auto session_lifetime = lifetime.create_nested();
+    const auto debug_session = replay->debug_vertex(session_lifetime, model::RdcDebugVertexInput(784, 5039, {}));
+
+    const LineTracker line_tracker(lifetime, debug_session);
+
+    std::vector<int> expected_lines(81);
+
+    expected_lines[0] = 15;
+    for (uint8_t i = 1; i < 22; ++i) {
+      debug_session->step_over();
+      expected_lines[i] = i + 15;
+    }
+    for (uint8_t i = 0 ; i < 58; ++i) {
+      debug_session->step_into();
+      expected_lines[i + 22] = i + 122;
+    }
+
+    debug_session->step_into();
+    expected_lines.back() = -1;
+
+    assert(line_tracker.lines == expected_lines);
+  }
+
   // ShaderLab source file
   {
-    const auto debug_session = replay->debug_vertex(lifetime, model::RdcDebugVertexInput(732, 30, {}));
+    const auto session_lifetime = lifetime.create_nested();
+    const auto debug_session = replay->debug_vertex(session_lifetime, model::RdcDebugVertexInput(732, 30, {}));
 
     const FrameTracker frame_tracker(lifetime, debug_session);
 
@@ -61,7 +122,11 @@ void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wr
 }
 
 void assert_try_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) {
-  const auto vertex_debug_session = replay->try_debug_vertex(lifetime, model::RdcDebugVertexInput(0, 100, breakpoints));
+  // instantly finishing sessions
+  assert_session_finishes_immediately(lifetime, replay, RdcDebugInput({ 0, 15000, breakpoints }), false);
+
+  const auto session_lifetime = lifetime.create_nested();
+  const auto vertex_debug_session = replay->try_debug_vertex(session_lifetime, model::RdcDebugVertexInput(0, 35, breakpoints));
 
   const auto eventId = vertex_debug_session->get_currentStack().get()->get_drawCallId();
   assert(eventId == 715);
@@ -124,25 +189,191 @@ void assert_try_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd
   }
 
   assert(frame_tracker.frames ==
-         std::vector({{model::RdcDebugStack(715, 0, 0, 883, 883, 11, 45)},  {model::RdcDebugStack(715, 19, 0, 883, 883, 1, 45)}, {model::RdcDebugStack(715, 20, 0, 884, 884, 13, 28)},
-                      {model::RdcDebugStack(715, 21, 0, 884, 884, 13, 34)}, {model::RdcDebugStack(715, 22, 0, 885, 885, 1, 10)}, {model::RdcDebugStack(715, -1, -1, 0, 0, 0, 0)},
+         std::vector({
+           {model::RdcDebugStack(715, 0, 0, 883, 883, 11, 45)},
+           {model::RdcDebugStack(715, 19, 0, 883, 883, 1, 45)},
+           {model::RdcDebugStack(715, 20, 0, 884, 884, 13, 28)},
+           {model::RdcDebugStack(715, 21, 0, 884, 884, 13, 34)},
+           {model::RdcDebugStack(715, 22, 0, 885, 885, 1, 10)},
+           {model::RdcDebugStack(715, -1, -1, 0, 0, 0, 0)},
 
-                      {model::RdcDebugStack(732, -1, -1, 0, 0, 0, 0)},      {model::RdcDebugStack(732, 0, 0, 918, 918, 11, 45)}, {model::RdcDebugStack(732, 19, 0, 918, 918, 1, 45)},
-                      {model::RdcDebugStack(732, 20, 0, 919, 919, 13, 35)}, {model::RdcDebugStack(732, 21, 0, 920, 920, 1, 10)}, {model::RdcDebugStack(732, -1, -1, 0, 0, 0, 0)},
+           {model::RdcDebugStack(732, -1, -1, 0, 0, 0, 0)},
+           {model::RdcDebugStack(732, 0, 0, 918, 918, 11, 45)},
+           {model::RdcDebugStack(732, 19, 0, 918, 918, 1, 45)},
+           {model::RdcDebugStack(732, 20, 0, 919, 919, 13, 35)},
+           {model::RdcDebugStack(732, 21, 0, 920, 920, 1, 10)},
+           {model::RdcDebugStack(732, -1, -1, 0, 0, 0, 0)},
 
-                      {model::RdcDebugStack(749, -1, -1, 0, 0, 0, 0)},
+           {model::RdcDebugStack(749, -1, -1, 0, 0, 0, 0)},
 
-                      {model::RdcDebugStack(765, -1, -1, 0, 0, 0, 0)},      {model::RdcDebugStack(765, 0, 0, 895, 895, 19, 58)}, {model::RdcDebugStack(765, 7, 0, 897, 897, 20, 48)},
-                      {model::RdcDebugStack(765, 8, 0, 897, 897, 52, 73)},  {model::RdcDebugStack(765, 9, 0, 897, 897, 20, 73)}, {model::RdcDebugStack(765, 10, 0, 897, 897, 14, 75)},
-                      {model::RdcDebugStack(765, 11, 0, 897, 897, 14, 92)}, {model::RdcDebugStack(765, 12, 0, 899, 899, 1, 22)}, {model::RdcDebugStack(765, 13, 0, 901, 901, 11, 45)},
-                      {model::RdcDebugStack(765, 33, 0, 901, 901, 1, 45)},  {model::RdcDebugStack(765, 34, 0, 903, 903, 1, 10)}, {model::RdcDebugStack(765, -1, -1, 0, 0, 0, 0)},
+           {model::RdcDebugStack(765, -1, -1, 0, 0, 0, 0)},
+           {model::RdcDebugStack(765, 0, 0, 895, 895, 19, 58)},
+           {model::RdcDebugStack(765, 7, 0, 897, 897, 20, 48)},
+           {model::RdcDebugStack(765, 8, 0, 897, 897, 52, 73)},
+           {model::RdcDebugStack(765, 9, 0, 897, 897, 20, 73)},
+           {model::RdcDebugStack(765, 10, 0, 897, 897, 14, 75)},
+           {model::RdcDebugStack(765, 11, 0, 897, 897, 14, 92)},
+           {model::RdcDebugStack(765, 12, 0, 899, 899, 1, 22)},
+           {model::RdcDebugStack(765, 13, 0, 901, 901, 11, 45)},
+           {model::RdcDebugStack(765, 33, 0, 901, 901, 1, 45)},
+           {model::RdcDebugStack(765, 34, 0, 903, 903, 1, 10)},
+           {model::RdcDebugStack(765, -1, -1, 0, 0, 0, 0)},
 
-                      {model::RdcDebugStack(784, -1, -1, 0, 0, 0, 0)},      {model::RdcDebugStack(784, 0, -1, 15, 15, 0, 0)},    {model::RdcDebugStack(784, 1, -1, 16, 16, 0, 0)},
-                      {model::RdcDebugStack(784, 2, -1, 17, 17, 0, 0)},     {model::RdcDebugStack(784, 3, -1, 18, 18, 0, 0)},    rd::Wrapper<model::RdcDebugStack>(nullptr)}));
+           {model::RdcDebugStack(784, -1, -1, 0, 0, 0, 0)},
+           {model::RdcDebugStack(784, 0, -1, 15, 15, 0, 0)},
+           {model::RdcDebugStack(784, 1, -1, 16, 16, 0, 0)},
+           {model::RdcDebugStack(784, 2, -1, 17, 17, 0, 0)},
+           {model::RdcDebugStack(784, 3, -1, 18, 18, 0, 0)},
+           rd::Wrapper<model::RdcDebugStack>(nullptr)}));
+}
+
+void assert_try_debug_vertex_step_over(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, uint32_t vert_id, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) {
+  const auto session_lifetime = lifetime.create_nested();
+  const auto vertex_debug_session = replay->try_debug_vertex(session_lifetime, model::RdcDebugVertexInput(0, vert_id, breakpoints));
+
+  const auto eventId = vertex_debug_session->get_currentStack().get()->get_drawCallId();
+  assert(eventId == 715);
+
+  const FrameTracker frame_tracker(lifetime, vertex_debug_session);
+
+  {
+    // event 715
+    const auto name = vertex_debug_session->get_sourceFiles().at(0)->get_name();
+    assert(name.find(L"unnamed_shader") != std::wstring::npos);
+
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+  }
+
+  // event 732
+  vertex_debug_session->step_into();
+
+  // event 749
+  vertex_debug_session->step_over();
+
+  // event 765
+  vertex_debug_session->step_over();
+
+  // event 784
+  vertex_debug_session->step_over();
+
+  vertex_debug_session->resume();
+
+  assert(frame_tracker.frames ==
+         std::vector({{model::RdcDebugStack(715, 0, 0, 883, 883, 11, 45)},
+           {model::RdcDebugStack(715, 19, 0, 883, 883, 1, 45)},
+           {model::RdcDebugStack(715, 20, 0, 884, 884, 13, 28)},
+           {model::RdcDebugStack(715, 21, 0, 884, 884, 13, 34)},
+           {model::RdcDebugStack(715, 22, 0, 885, 885, 1, 10)},
+           {model::RdcDebugStack(715, -1, -1, 0, 0, 0, 0)},
+
+           {model::RdcDebugStack(732, -1, -1, 0, 0, 0, 0)},
+
+           {model::RdcDebugStack(749, -1, -1, 0, 0, 0, 0)},
+
+           {model::RdcDebugStack(765, -1, -1, 0, 0, 0, 0)},
+
+           {model::RdcDebugStack(784, -1, -1, 0, 0, 0, 0)},
+           rd::Wrapper<model::RdcDebugStack>(nullptr)
+           }));
+}
+
+void assert_try_debug_uncommon_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) {
+  const auto session_lifetime = lifetime.create_nested();
+  const auto vertex_debug_session = replay->try_debug_vertex(session_lifetime, model::RdcDebugVertexInput(0, 100, breakpoints));
+
+  const auto eventId = vertex_debug_session->get_currentStack().get()->get_drawCallId();
+  assert(eventId == 715);
+
+  const FrameTracker frame_tracker(lifetime, vertex_debug_session);
+
+  {
+    // event 715
+    const auto name = vertex_debug_session->get_sourceFiles().at(0)->get_name();
+    assert(name.find(L"unnamed_shader") != std::wstring::npos);
+
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+  }
+  vertex_debug_session->step_into();
+
+  // event 732, no vertex 100
+  vertex_debug_session->step_into();
+
+  // event 749, no vertex 100
+  vertex_debug_session->step_into();
+
+  {
+    // event 765
+    vertex_debug_session->step_into();
+    const auto name = vertex_debug_session->get_sourceFiles().at(0)->get_name();
+    assert(name.find(L"unnamed_shader") != std::wstring::npos);
+    vertex_debug_session->step_into();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+  }
+  vertex_debug_session->step_into();
+  {
+    // event 784
+    vertex_debug_session->step_into();
+    assert(vertex_debug_session->get_sourceFiles().empty());
+
+    vertex_debug_session->step_into();
+    vertex_debug_session->step_over();
+    vertex_debug_session->step_over();
+    vertex_debug_session->resume();
+  }
+
+  assert(frame_tracker.frames ==
+         std::vector({
+           {model::RdcDebugStack(715, 0, 0, 883, 883, 11, 45)},
+           {model::RdcDebugStack(715, 19, 0, 883, 883, 1, 45)},
+           {model::RdcDebugStack(715, 20, 0, 884, 884, 13, 28)},
+           {model::RdcDebugStack(715, 21, 0, 884, 884, 13, 34)},
+           {model::RdcDebugStack(715, 22, 0, 885, 885, 1, 10)},
+           {model::RdcDebugStack(715, -1, -1, 0, 0, 0, 0)},
+
+           {model::RdcDebugStack(732, -1, -1, 0, 0, 0, 0)},
+
+           {model::RdcDebugStack(749, -1, -1, 0, 0, 0, 0)},
+
+           {model::RdcDebugStack(765, -1, -1, 0, 0, 0, 0)},
+           {model::RdcDebugStack(765, 0, 0, 895, 895, 19, 58)},
+           {model::RdcDebugStack(765, 7, 0, 897, 897, 20, 48)},
+           {model::RdcDebugStack(765, 8, 0, 897, 897, 52, 73)},
+           {model::RdcDebugStack(765, 9, 0, 897, 897, 20, 73)},
+           {model::RdcDebugStack(765, 10, 0, 897, 897, 14, 75)},
+           {model::RdcDebugStack(765, 11, 0, 897, 897, 14, 92)},
+           {model::RdcDebugStack(765, 12, 0, 899, 899, 1, 22)},
+           {model::RdcDebugStack(765, 13, 0, 901, 901, 11, 45)},
+           {model::RdcDebugStack(765, 33, 0, 901, 901, 1, 45)},
+           {model::RdcDebugStack(765, 34, 0, 903, 903, 1, 10)},
+           {model::RdcDebugStack(765, -1, -1, 0, 0, 0, 0)},
+
+           {model::RdcDebugStack(784, -1, -1, 0, 0, 0, 0)},
+           {model::RdcDebugStack(784, 0, -1, 15, 15, 0, 0)},
+           {model::RdcDebugStack(784, 1, -1, 16, 16, 0, 0)},
+           {model::RdcDebugStack(784, 2, -1, 17, 17, 0, 0)},
+           {model::RdcDebugStack(784, 3, -1, 18, 18, 0, 0)},
+           rd::Wrapper<model::RdcDebugStack>(nullptr)}));
 }
 
 void assert_try_debug_vertex_with_breakpoints(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) {
-  const auto vertex_debug_session = replay->try_debug_vertex(lifetime, model::RdcDebugVertexInput(0, 17, breakpoints));
+  const auto session_lifetime = lifetime.create_nested();
+  const auto vertex_debug_session = replay->try_debug_vertex(session_lifetime, model::RdcDebugVertexInput(0, 17, breakpoints));
 
   const auto eventId = vertex_debug_session->get_currentStack().get()->get_drawCallId();
   assert(eventId == 715);
@@ -155,6 +386,7 @@ void assert_try_debug_vertex_with_breakpoints(const rd::Lifetime &lifetime, cons
   vertex_debug_session->resume();
   vertex_debug_session->remove_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Cube Shader.shader"), 44));
   vertex_debug_session->remove_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Cube Shader.shader"), 62));
+  vertex_debug_session->remove_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Waves.shader"), 47));
   vertex_debug_session->add_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Waves.shader"), 53));
   vertex_debug_session->resume();
   vertex_debug_session->resume();
@@ -187,10 +419,15 @@ void assert_try_debug_vertex_with_breakpoints(const rd::Lifetime &lifetime, cons
 }
 
 void assert_debug_pixel_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
+  // instantly finishing sessions
+  assert_session_finishes_immediately(lifetime, replay, RdcDebugInput({ 0, 0, 0, {} }), true);
+  assert_session_finishes_immediately(lifetime, replay, RdcDebugInput({ 739, 826, 914, {} }), true);
+  assert_session_finishes_immediately(lifetime, replay, RdcDebugInput({ 749, 826, 914, {} }), true);
 
   // disassembly
   {
-    const auto pixel_debug_session = replay->debug_pixel(lifetime, model::RdcDebugPixelInput(1043, 1133, 664, {}));
+    const auto session_lifetime = lifetime.create_nested();
+    const auto pixel_debug_session = replay->debug_pixel(session_lifetime, model::RdcDebugPixelInput(1043, 1133, 664, {}));
 
     const FrameTracker frame_tracker(lifetime, pixel_debug_session);
 
@@ -206,7 +443,8 @@ void assert_debug_pixel_step_by_step(const rd::Lifetime &lifetime, const rd::Wra
 
   // ShaderLab source file
   {
-    const auto pixel_debug_session = replay->debug_pixel(lifetime, model::RdcDebugPixelInput(732, 1133, 664, {}));
+    const auto session_lifetime = lifetime.create_nested();
+    const auto pixel_debug_session = replay->debug_pixel(session_lifetime, model::RdcDebugPixelInput(732, 1133, 664, {}));
 
     const FrameTracker frame_tracker(lifetime, pixel_debug_session);
 
@@ -226,7 +464,12 @@ void assert_debug_pixel_step_by_step(const rd::Lifetime &lifetime, const rd::Wra
 }
 
 void assert_try_debug_pixel_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) {
-  const auto pixel_debug_session = replay->try_debug_pixel(lifetime, model::RdcDebugPixelInput(0, 921, 541, breakpoints));
+  // instantly finishing sessions
+  assert_session_finishes_immediately(lifetime, replay, RdcDebugInput({ 0, 0, 0, breakpoints }), false);
+  assert_session_finishes_immediately(lifetime, replay, RdcDebugInput({ 0, 826, 914, breakpoints }), false);
+
+  const auto session_lifetime = lifetime.create_nested();
+  const auto pixel_debug_session = replay->try_debug_pixel(session_lifetime, model::RdcDebugPixelInput(0, 914, 534, breakpoints));
 
   const auto eventId = pixel_debug_session->get_currentStack().get()->get_drawCallId();
   assert(eventId == 749);
@@ -259,9 +502,22 @@ void assert_try_debug_pixel_step_by_step(const rd::Lifetime &lifetime, const rd:
     pixel_debug_session->step_into();
     assert(pixel_debug_session->get_sourceFiles().empty());
 
+    for (uint8_t i = 0; i < 17; ++i)
+      pixel_debug_session->step_over();
+  }
+  pixel_debug_session->step_into();
+  {
+    // event 811
     pixel_debug_session->step_into();
+    assert(pixel_debug_session->get_sourceFiles().empty());
+
+    for (uint8_t i = 0; i < 18; ++i)
+      pixel_debug_session->step_over();
     pixel_debug_session->step_over();
-    pixel_debug_session->step_over();
+  }
+  {
+    // event 824 should be skipped, no (914, 534) pixel in the event
+    pixel_debug_session->step_into();
     pixel_debug_session->resume();
   }
 
@@ -282,12 +538,53 @@ void assert_try_debug_pixel_step_by_step(const rd::Lifetime &lifetime, const rd:
     {model::RdcDebugStack(784, 1, -1, 13, 13, 0, 0)},
     {model::RdcDebugStack(784, 2, -1, 14, 14, 0, 0)},
     {model::RdcDebugStack(784, 3, -1, 15, 15, 0, 0)},
+    {model::RdcDebugStack(784, 4, -1, 16, 16, 0, 0)},
+    {model::RdcDebugStack(784, 5, -1, 17, 17, 0, 0)},
+    {model::RdcDebugStack(784, 6, -1, 18, 18, 0, 0)},
+    {model::RdcDebugStack(784, 7, -1, 19, 19, 0, 0)},
+    {model::RdcDebugStack(784, 8, -1, 20, 20, 0, 0)},
+    {model::RdcDebugStack(784, 9, -1, 21, 21, 0, 0)},
+    {model::RdcDebugStack(784, 10, -1, 22, 22, 0, 0)},
+    {model::RdcDebugStack(784, 11, -1, 23, 23, 0, 0)},
+    {model::RdcDebugStack(784, 12, -1, 24, 24, 0, 0)},
+    {model::RdcDebugStack(784, 13, -1, 25, 25, 0, 0)},
+    {model::RdcDebugStack(784, 14, -1, 26, 26, 0, 0)},
+    {model::RdcDebugStack(784, 15, -1, 27, 27, 0, 0)},
+    {model::RdcDebugStack(784, 16, -1, 28, 28, 0, 0)},
+    {model::RdcDebugStack(784, -1, -1, 0, 0, 0, 0)},
+
+    {model::RdcDebugStack(811, -1, -1, 0, 0, 0, 0)},
+    {model::RdcDebugStack(811, 0, -1, 10, 10, 0, 0)},
+    {model::RdcDebugStack(811, 1, -1, 11, 11, 0, 0)},
+    {model::RdcDebugStack(811, 2, -1, 12, 12, 0, 0)},
+    {model::RdcDebugStack(811, 3, -1, 13, 13, 0, 0)},
+    {model::RdcDebugStack(811, 4, -1, 14, 14, 0, 0)},
+    {model::RdcDebugStack(811, 5, -1, 15, 15, 0, 0)},
+    {model::RdcDebugStack(811, 6, -1, 16, 16, 0, 0)},
+    {model::RdcDebugStack(811, 7, -1, 17, 17, 0, 0)},
+    {model::RdcDebugStack(811, 8, -1, 18, 18, 0, 0)},
+    {model::RdcDebugStack(811, 9, -1, 19, 19, 0, 0)},
+    {model::RdcDebugStack(811, 10, -1, 20, 20, 0, 0)},
+    {model::RdcDebugStack(811, 11, -1, 21, 21, 0, 0)},
+    {model::RdcDebugStack(811, 12, -1, 22, 22, 0, 0)},
+    {model::RdcDebugStack(811, 13, -1, 23, 23, 0, 0)},
+    {model::RdcDebugStack(811, 14, -1, 24, 24, 0, 0)},
+    {model::RdcDebugStack(811, 15, -1, 25, 25, 0, 0)},
+    {model::RdcDebugStack(811, 16, -1, 26, 26, 0, 0)},
+    {model::RdcDebugStack(811, 17, -1, 27, 27, 0, 0)},
+    {model::RdcDebugStack(811, -1, -1, 0, 0, 0, 0)},
+
+    {model::RdcDebugStack(824, -1, -1, 0, 0, 0, 0)},
+
+    {model::RdcDebugStack(837, -1, -1, 0, 0, 0, 0)},
+
     rd::Wrapper<model::RdcDebugStack>(nullptr)}));
 }
 
 void assert_try_debug_pixel_with_breakpoints(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) {
   breakpoints.emplace_back(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/ShaderForSphere.shader"), 27));
-  const auto pixel_debug_session = replay->try_debug_pixel(lifetime, model::RdcDebugPixelInput(0, 914, 535, breakpoints));
+  const auto session_lifetime = lifetime.create_nested();
+  const auto pixel_debug_session = replay->try_debug_pixel(session_lifetime, model::RdcDebugPixelInput(0, 914, 535, breakpoints));
 
   const auto eventId = pixel_debug_session->get_currentStack().get()->get_drawCallId();
   assert(eventId == 715);
@@ -334,6 +631,10 @@ void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<Rende
     assert(vertices == nullptr);
   }
   {
+    const auto &vertices = replay->get_vertices_inoutputs(lifetime, 697);
+    assert(vertices == nullptr);
+  }
+  {
     const auto &vertices = replay->get_vertices_inoutputs(lifetime, 112);
     assert(vertices != nullptr);
     assert(vertices->get_input_indices() == std::vector<uint32_t>({ 22561, 22563, 22562, 22562, 22563, 22564 }));
@@ -375,6 +676,28 @@ void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<Rende
     assert(vertices->get_outputs()[0] == std::vector<std::vector<float>>({{ -0.892122149, 0.0177013576, 0.0561662987, 5.5933671 }, { 0.691409409, 0.0478301644, 0.405634433 }}));
     assert(vertices->get_outputs()[227] == std::vector<std::vector<float>>({{ -0.817703127, -0.542326808, 0.0561641343, 6.02090645 }, { 0.211324871, 0.211324871, 0.211324841 }}));
     assert(vertices->get_outputs()[524] == std::vector<std::vector<float>>({{ -0.670523405, -1.33369005, 0.0561684333, 5.1719327 }, { 0.683429419, 0.927442729, 0.683429419 }}));
+  }
+  {
+    const auto &vertices = replay->get_vertices_inoutputs(lifetime, 765);
+    assert(vertices != nullptr);
+    {
+      const auto &vertices_grouped = replay->get_vertices_inoutputs(lifetime, 739);
+      assert(vertices == vertices_grouped);
+    }
+    assert(vertices->get_input_indices().size() == 600);
+    assert(vertices->get_output_indices().size() == 600);
+    assert(vertices->get_input_indices() == vertices->get_output_indices());
+    assert(vertices->get_input_indices()[0] == 9 && vertices->get_input_indices()[1] == 21 && vertices->get_input_indices()[526] == 59 && vertices->get_input_indices()[530] == 60);
+    assert(vertices->get_input_columns() == std::vector({rd::Wrapper<std::wstring>(L"POSITION"), rd::Wrapper<std::wstring>(L"NORMAL")}));
+    assert(vertices->get_output_columns() == std::vector({rd::Wrapper<std::wstring>(L"SV_POSITION")}));
+    assert(vertices->get_inputs().size() == 600);
+    assert(vertices->get_outputs().size() == 600);
+    assert(vertices->get_inputs()[0] == std::vector<std::vector<float>>({{ -4.00000048, -1.11022302e-16, 5 }, { 0, 1, 0 }}));
+    assert(vertices->get_inputs()[123] == std::vector<std::vector<float>>({{ 0, -6.66133841e-17, 3 }, { 0, 1, 0 }}));
+    assert(vertices->get_inputs()[599] == std::vector<std::vector<float>>({{ 0.99999994, -6.66133841e-17, 3 }, { 0, 1, 0 }}));
+    assert(vertices->get_outputs()[0] == std::vector<std::vector<float>>({{ 5.94775963, 0.726316333, 0.0561287366, 13.0075474 }}));
+    assert(vertices->get_outputs()[123] == std::vector<std::vector<float>>({{ 2.5044744, 3.02407265, 0.0561392419, 10.9337492 }}));
+    assert(vertices->get_outputs()[599] == std::vector<std::vector<float>>({{ 2.034446, 2.76309252, 0.0561441183, 9.97161197 }}));
   }
 }
 
@@ -473,11 +796,15 @@ int main() {
         {model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/ShaderForSphere.shader"), 20)},
         {model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/mult.hlsl"), 3)},
         {model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/mult.hlsl"), 7)},
+        {model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Waves.shader"), 47)},
         {model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Waves.shader"), 58)},
     };
 
     assert_debug_vertex_step_by_step(lifetime, replay);
+    assert_try_debug_vertex_step_over(lifetime, replay, 35, breakpoints);
+    assert_try_debug_vertex_step_over(lifetime, replay, 100, breakpoints);
     assert_try_debug_vertex_step_by_step(lifetime, replay, breakpoints);
+    assert_try_debug_uncommon_vertex_step_by_step(lifetime, replay, breakpoints);
     assert_try_debug_vertex_with_breakpoints(lifetime, replay, breakpoints);
 
     assert_debug_pixel_step_by_step(lifetime, replay);

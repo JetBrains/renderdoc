@@ -17,6 +17,19 @@ const ActionDescription *get_next_action(const ActionDescription *current);
 const ActionDescription *find_action(const ActionDescription *begin, const std::function<bool(const ActionDescription &)> &predicate);
 const ActionDescription *get_action(const rdcarray<ActionDescription> &actions, uint32_t event_id);
 bool is_draw_call(const ActionDescription &action);
+
+template<typename T>
+rd::Wrapper<T> first_not_null_action(const ActionDescription *begin, const std::function<rd::Wrapper<T>(const ActionDescription &)> &transform)
+{
+  const ActionDescription *action = begin;
+  while(action != nullptr)
+  {
+    if (auto result = transform(*action))
+      return result;
+    action = get_next_action(action);
+  }
+  return rd::Wrapper<T>(nullptr);
+}
 }
 
 #endif //RENDERDOCACTIONHELPERS_H
