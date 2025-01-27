@@ -168,7 +168,7 @@ std::vector<rd::Wrapper<model::RdcResourceInfo>> RenderDocDrawCallDebugSession::
 }
 
 RenderDocDrawCallDebugSession::RenderDocDrawCallDebugSession(const ActionDescription* action, const std::shared_ptr<IReplayController> &controller, ShaderDebugTrace *trace, const ShaderDebugInfo *debug_info, const ShaderReflection *reflection)
-    :  RdcDrawCallDebugSession(RenderDocConverterUtils::convertDebugTrace(*trace), get_disassembly(controller, reflection, trace->stage, action->eventId, debug_info->sourceDebugInformation), get_source_files(debug_info), get_resource(controller),
+    :  RdcDrawCallDebugSession(RenderDocConverterUtils::convertDebugTrace(trace), get_disassembly(controller, reflection, trace->stage, action->eventId, debug_info->sourceDebugInformation), get_source_files(debug_info), get_resource(controller),
       RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadOnlyResources(trace->stage)), RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadWriteResources(trace->stage)),
       RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetSamplers(trace->stage)), RenderDocConverterUtils::convertShaderReflection(reflection)),
       data(std::make_shared<RenderDocDrawCallDebugSessionData>(action, trace, controller, debug_info)) {
