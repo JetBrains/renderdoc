@@ -47,7 +47,7 @@ class RenderDocClientTest {
             fun getResourceInfo() = when {
                 osName.contains("mac") -> Pair("macos", "Vulkan")
                 osName.contains("win") -> Pair("windows", "D3D11")
-                osName.contains("nix") || osName.contains("nux") || osName.contains("aix") -> Pair("linux", "D3D11")
+                osName.contains("nix") || osName.contains("nux") -> Pair("linux", "Vulkan")
                 else -> fail("Tests can't be executed in current operating system")
             }
 
