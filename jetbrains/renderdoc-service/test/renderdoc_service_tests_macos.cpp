@@ -1,24 +1,11 @@
 #include <cassert>
 
 #include "RenderDocServiceApi.h"
+#include "renderdoc_service_test_utils.h"
 
 using namespace jetbrains::renderdoc;
 
-struct LineTracker {
-  std::vector<int32_t> lines;
-
-  LineTracker(const rd::Lifetime& lifetime, rd::Wrapper<RenderDocDebugSession> debug_session) {
-    debug_session->get_currentStack().advise(lifetime, [this](auto const &stack) {
-      if (stack != nullptr) {
-        lines.push_back(static_cast<int32_t>(stack->get_lineStart()));
-      } else {
-        lines.push_back(-1);
-      }
-    });
-  }
-};
-
-void assert_debug_vertex_step_by_step(const rd::Lifetime& lifetime, const rd::Wrapper<RenderDocReplay>& replay, uint32_t eventId) {
+void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, uint32_t eventId) {
   const auto debug_session = replay->debug_vertex(lifetime, eventId);
   const auto name = debug_session->get_sourceFiles()[0].get()->get_name();
   assert(name.find(L"/triangle.vert") != std::wstring::npos);
@@ -34,7 +21,7 @@ void assert_debug_vertex_step_by_step(const rd::Lifetime& lifetime, const rd::Wr
   assert(line_tracker.lines == std::vector({32, 33, 34, 27, 22, -1}));
 }
 
-void assert_debug_vertex_with_breakpoints(const rd::Lifetime& lifetime, const rd::Wrapper<RenderDocReplay>& replay, uint32_t eventId) {
+void assert_debug_vertex_with_breakpoints(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, uint32_t eventId) {
   const auto debug_session = replay->debug_vertex(lifetime, eventId);
   const LineTracker line_tracker(lifetime, debug_session);
 
@@ -51,8 +38,7 @@ void assert_debug_vertex_with_breakpoints(const rd::Lifetime& lifetime, const rd
   assert(line_tracker.lines == std::vector({32, 27, 22, 34, 22, -1}));
 }
 
-int main()
-{
+int main() {
   const rd::LifetimeDefinition test_lifetime_def;
   const auto lifetime = test_lifetime_def.lifetime;
   RenderDocService service;
@@ -71,7 +57,7 @@ int main()
     assert_debug_vertex_step_by_step(lifetime, replay, action->get_eventId());
     assert_debug_vertex_with_breakpoints(lifetime, replay, action->get_eventId());
     return 0;
-  } catch (const std::exception& ex) {
+  } catch (const std::exception &ex) {
     std::cerr << ex.what() << std::endl;
     return 1;
   }
