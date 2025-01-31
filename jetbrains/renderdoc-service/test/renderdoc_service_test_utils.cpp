@@ -14,7 +14,12 @@ LineTracker::LineTracker(const rd::Lifetime &lifetime, rd::Wrapper<RenderDocDebu
 }
 
 FrameTracker::FrameTracker(const rd::Lifetime &lifetime, rd::Wrapper<RenderDocDebugSession> debug_session) {
-  debug_session->get_currentStack().advise(lifetime, [this](auto const &stack) {
+  debug_session->get_currentStack().advise(lifetime, [this, debug_session](auto const &stack) {
+    if (const auto draw_call = debug_session->get_drawCallSession().get();
+      !draw_call || draw_call_sessions.empty() || draw_call != draw_call_sessions.back()) {
+      draw_call_sessions.emplace_back(draw_call);
+      draw_call_id_changes.emplace_back(frames.size(), stack ? static_cast<int64_t>(stack->get_drawCallId()) : -1);
+    }
     frames.push_back(stack);
   });
 }
