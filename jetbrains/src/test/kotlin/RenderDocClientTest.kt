@@ -1,25 +1,14 @@
 import com.jetbrains.rd.framework.createBackgroundScheduler
-import com.jetbrains.rd.framework.protocolOrThrow
 import com.jetbrains.rd.util.lifetime.Lifetime
-import com.jetbrains.rd.util.lifetime.waitTermination
-import com.jetbrains.rd.util.reactive.fire
-import com.jetbrains.rd.util.reactive.valueOrThrow
-import com.jetbrains.rd.util.threading.coroutines.adviseSuspend
 import com.jetbrains.rd.util.threading.coroutines.asCoroutineDispatcher
 import com.jetbrains.rd.util.threading.coroutines.createTerminatedAfter
 import com.jetbrains.renderdoc.rdClient.RenderDocClient
-import com.jetbrains.renderdoc.rdClient.model.RdcLineBreakpoint
-import com.jetbrains.renderdoc.rdClient.model.RdcActionFlags
-import com.jetbrains.renderdoc.rdClient.model.RdcCapture
-import com.jetbrains.renderdoc.rdClient.model.RdcSourceBreakpoint
 import kotlinx.coroutines.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
 import java.time.Duration
 import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.io.path.Path
-import kotlin.io.path.name
 import kotlin.io.path.pathString
 import kotlin.io.path.toPath
 
