@@ -1,9 +1,17 @@
 import com.jetbrains.rd.framework.createBackgroundScheduler
+import com.jetbrains.rd.framework.protocolOrThrow
 import com.jetbrains.rd.util.lifetime.Lifetime
+import com.jetbrains.rd.util.lifetime.waitTermination
+import com.jetbrains.rd.util.threading.coroutines.adviseSuspend
 import com.jetbrains.rd.util.threading.coroutines.asCoroutineDispatcher
 import com.jetbrains.rd.util.threading.coroutines.createTerminatedAfter
 import com.jetbrains.renderdoc.rdClient.RenderDocClient
+import com.jetbrains.renderdoc.rdClient.model.RdcCapture
+import com.jetbrains.renderdoc.rdClient.model.RdcDebugPixelInput
+import com.jetbrains.renderdoc.rdClient.model.RdcDebugStack
+import com.jetbrains.renderdoc.rdClient.model.RdcDebugVertexInput
 import kotlinx.coroutines.*
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
@@ -14,6 +22,36 @@ import kotlin.io.path.toPath
 
 
 class RenderDocClientTest {
+
+    companion object {
+        suspend fun assertSessionFinishesImmediately(modelLifetime: Lifetime, capture: RdcCapture, input: Any, debugSingleCall: Boolean) {
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val sessionLifetime = modelLifetime.createNested()
+            val debugSession = withContext(rdDispatcher) {
+                when (input) {
+                    is RdcDebugVertexInput -> (if (debugSingleCall) capture.debugVertex else capture.tryDebugVertex).startSuspending(sessionLifetime, input)
+                    is RdcDebugPixelInput -> (if (debugSingleCall) capture.debugPixel else capture.tryDebugPixel).startSuspending(sessionLifetime, input)
+                    else -> Assertions.fail("Unexpected input type detected")
+                }
+            }
+
+            val frames = mutableListOf<RdcDebugStack>()
+            withContext(rdDispatcher) {
+                debugSession.currentStack.adviseSuspend(sessionLifetime, rdDispatcher) {
+                    if (it != null) {
+                        frames.add(it)
+                    } else {
+                        sessionLifetime.terminate()
+                    }
+                }
+            }
+
+            sessionLifetime.waitTermination()
+
+            assertEquals(emptyList<RdcDebugStack>(), frames)
+        }
+    }
+
     @Test
     fun testRenderDocClient() {
         val sessionId = 12345L

@@ -9,39 +9,6 @@
 
 using namespace jetbrains::renderdoc;
 
-union RdcDebugInput {
-  model::RdcDebugVertexInput vertex;
-  model::RdcDebugPixelInput pixel;
-
-  explicit RdcDebugInput(model::RdcDebugVertexInput &&vertex) : vertex(std::move(vertex)), type(Vertex) {}
-  explicit RdcDebugInput(model::RdcDebugPixelInput &&pixel) : pixel(std::move(pixel)), type(Pixel) {}
-  ~RdcDebugInput() {}
-
-  enum { Vertex, Pixel } type;
-};
-
-void assert_session_finishes_immediately(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, const RdcDebugInput &input, bool debug_single_call) {
-  const auto session_lifetime = lifetime.create_nested();
-  rd::Wrapper<RenderDocDebugSession> debug_session;
-  if (input.type == RdcDebugInput::Vertex) {
-    if (debug_single_call)
-      debug_session = replay->debug_vertex(session_lifetime, input.vertex);
-    else
-      debug_session = replay->try_debug_vertex(session_lifetime, input.vertex);
-  } else {
-    if (debug_single_call)
-      debug_session = replay->debug_pixel(session_lifetime, input.pixel);
-    else
-      debug_session = replay->try_debug_pixel(session_lifetime, input.pixel);
-  }
-
-  const FrameTracker frame_tracker(lifetime, debug_session);
-  assert(frame_tracker.frames == std::vector({rd::Wrapper<model::RdcDebugStack>(nullptr)}));
-  assert(frame_tracker.draw_call_id_changes == std::vector({
-    std::make_pair<std::size_t, int64_t>(0, -1)
-  }));
-}
-
 void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
   // instantly finishing sessions
   assert_session_finishes_immediately(lifetime, replay, RdcDebugInput({0, 0, {}}) , true);
@@ -742,10 +709,10 @@ void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<Rende
     assert(vertices->get_input_indices() == std::vector<uint32_t>({ 22561, 22563, 22562, 22562, 22563, 22564 }));
     assert(vertices->get_input_columns() == std::vector({rd::Wrapper<std::wstring>(L"POSITION"), rd::Wrapper<std::wstring>(L"COLOR"), rd::Wrapper<std::wstring>(L"TEXCOORD0")}));
     assert(vertices->get_output_columns() == std::vector({rd::Wrapper<std::wstring>(L"SV_POSITION"), rd::Wrapper<std::wstring>(L"COLOR"), rd::Wrapper<std::wstring>(L"TEXCOORD0"), rd::Wrapper<std::wstring>(L"TEXCOORD1")}));
-    assert(vertices->get_inputs()[0] == std::vector<std::vector<float>>({ { -0.000671386719, 761.333008, 0.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 0.00, 0.00 } }));
-    assert(vertices->get_inputs()[5] == std::vector<std::vector<float>>({ { 1356.66626, 0.00, 0.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 1.00, 1.00 } }));
-    assert(vertices->get_outputs()[2] == std::vector<std::vector<float>>({ { 0.99999988, -1.00, 0.990099012, 1.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 1.00, 0.00 }, { 0.93749994, 0.937500059 } }));
-    assert(vertices->get_outputs()[3] == std::vector<std::vector<float>>({ { 0.99999988, -1.00, 0.990099012, 1.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 1.00, 0.00 }, { 0.93749994, 0.937500059 } }));
+    assert_float_2d_vectors_are_equal(vertices->get_inputs()[0],  std::vector<std::vector<float>>({ { -0.000671386719, 761.333008, 0.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 0.00, 0.00 } }));
+    assert_float_2d_vectors_are_equal(vertices->get_inputs()[5], std::vector<std::vector<float>>({ { 1356.66626, 0.00, 0.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 1.00, 1.00 } }));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[2], std::vector<std::vector<float>>({ { 0.99999988, -1.00, 0.990099012, 1.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 1.00, 0.00 }, { 0.93749994, 0.937500059 } }));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[3], std::vector<std::vector<float>>({ { 0.99999988, -1.00, 0.990099012, 1.00 }, { 0.0980392172, 0.0980392172, 0.0980392172, 1.00 }, { 1.00, 0.00 }, { 0.93749994, 0.937500059 } }));
   }
   {
     const auto &vertices = replay->get_vertices_inoutputs(lifetime, 677);
@@ -755,11 +722,9 @@ void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<Rende
     assert(vertices->get_input_columns().empty());
     assert(vertices->get_output_columns() == std::vector({rd::Wrapper<std::wstring>(L"SV_POSITION"), rd::Wrapper<std::wstring>(L"TEXCOORD")}));
     assert(vertices->get_inputs() == std::vector<std::vector<std::vector<float>>>({{}, {}, {}}));
-    assert(vertices->get_outputs() == std::vector<std::vector<std::vector<float>>>({
-      {{ -1.0, -1.0, 1.0, 1.0 }, { 0.0, 1.0 }},
-      {{ 3.0, -1.0, 1.0, 1.0 }, { 2.0, 1.0 }},
-      {{ -1.0, 3.0, 1.0, 1.0 }, { 0.0, -1.0 }}
-    }));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[0], std::vector<std::vector<float>>({{ -1.0, -1.0, 1.0, 1.0 }, { 0.0, 1.0 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[1], std::vector<std::vector<float>>({{ 3.0, -1.0, 1.0, 1.0 }, { 2.0, 1.0 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[2], std::vector<std::vector<float>>({{ -1.0, 3.0, 1.0, 1.0 }, { 0.0, -1.0 }}));
   }
   {
     const auto &vertices = replay->get_vertices_inoutputs(lifetime, 715);
@@ -772,12 +737,12 @@ void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<Rende
     assert(vertices->get_output_columns() == std::vector({rd::Wrapper<std::wstring>(L"SV_POSITION"), rd::Wrapper<std::wstring>(L"COLOR")}));
     assert(vertices->get_inputs().size() == 2304);
     assert(vertices->get_outputs().size() == 2304);
-    assert(vertices->get_inputs()[0] == std::vector<std::vector<float>>({{ 0.19199951, -0.450263649, -0.0945074409 }, { 0.382818788, -0.904339671, -0.188731149 }, { 0.425961286, 0.175267562 }}));
-    assert(vertices->get_inputs()[2227] == std::vector<std::vector<float>>({{ 0.0905187949, 0.275551766, -0.406967759 }, { 0.180491149, 0.550244927, -0.815262854 }, { 0.283699751, 0.675781726 }}));
-    assert(vertices->get_inputs()[2303] == std::vector<std::vector<float>>({{ -0.288835436, 0.287900388, -0.288835436 }, { -0.577053428, 0.577943504, -0.577053428 }, { 0.123985529, 0.683609068 }}));
-    assert(vertices->get_outputs()[0] == std::vector<std::vector<float>>({{ -0.892122149, 0.0177013576, 0.0561662987, 5.5933671 }, { 0.691409409, 0.0478301644, 0.405634433 }}));
-    assert(vertices->get_outputs()[227] == std::vector<std::vector<float>>({{ -0.817703127, -0.542326808, 0.0561641343, 6.02090645 }, { 0.211324871, 0.211324871, 0.211324841 }}));
-    assert(vertices->get_outputs()[524] == std::vector<std::vector<float>>({{ -0.670523405, -1.33369005, 0.0561684333, 5.1719327 }, { 0.683429419, 0.927442729, 0.683429419 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_inputs()[0], std::vector<std::vector<float>>({{ 0.19199951, -0.450263649, -0.0945074409 }, { 0.382818788, -0.904339671, -0.188731149 }, { 0.425961286, 0.175267562 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_inputs()[2227], std::vector<std::vector<float>>({{ 0.0905187949, 0.275551766, -0.406967759 }, { 0.180491149, 0.550244927, -0.815262854 }, { 0.283699751, 0.675781726 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_inputs()[2303], std::vector<std::vector<float>>({{ -0.288835436, 0.287900388, -0.288835436 }, { -0.577053428, 0.577943504, -0.577053428 }, { 0.123985529, 0.683609068 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[0], std::vector<std::vector<float>>({{ -0.892122149, 0.0177013576, 0.0561662987, 5.5933671 }, { 0.691409409, 0.0478301644, 0.405634433 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[227], std::vector<std::vector<float>>({{ -0.817703127, -0.542326808, 0.0561641343, 6.02090645 }, { 0.211324871, 0.211324871, 0.211324841 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[524], std::vector<std::vector<float>>({{ -0.670523405, -1.33369005, 0.0561684333, 5.1719327 }, { 0.683429419, 0.927442729, 0.683429419 }}));
   }
   {
     const auto &vertices = replay->get_vertices_inoutputs(lifetime, 765);
@@ -794,12 +759,12 @@ void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<Rende
     assert(vertices->get_output_columns() == std::vector({rd::Wrapper<std::wstring>(L"SV_POSITION")}));
     assert(vertices->get_inputs().size() == 600);
     assert(vertices->get_outputs().size() == 600);
-    assert(vertices->get_inputs()[0] == std::vector<std::vector<float>>({{ -4.00000048, -1.11022302e-16, 5 }, { 0, 1, 0 }}));
-    assert(vertices->get_inputs()[123] == std::vector<std::vector<float>>({{ 0, -6.66133841e-17, 3 }, { 0, 1, 0 }}));
-    assert(vertices->get_inputs()[599] == std::vector<std::vector<float>>({{ 0.99999994, -6.66133841e-17, 3 }, { 0, 1, 0 }}));
-    assert(vertices->get_outputs()[0] == std::vector<std::vector<float>>({{ 5.94775963, 0.726316333, 0.0561287366, 13.0075474 }}));
-    assert(vertices->get_outputs()[123] == std::vector<std::vector<float>>({{ 2.5044744, 3.02407265, 0.0561392419, 10.9337492 }}));
-    assert(vertices->get_outputs()[599] == std::vector<std::vector<float>>({{ 2.034446, 2.76309252, 0.0561441183, 9.97161197 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_inputs()[0], std::vector<std::vector<float>>({{ -4.00000048, -1.11022302e-16, 5 }, { 0, 1, 0 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_inputs()[123], std::vector<std::vector<float>>({{ 0, -6.66133841e-17, 3 }, { 0, 1, 0 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_inputs()[599], std::vector<std::vector<float>>({{ 0.99999994, -6.66133841e-17, 3 }, { 0, 1, 0 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[0], std::vector<std::vector<float>>({{ 5.94775963, 0.726316333, 0.0561287366, 13.0075474 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[123], std::vector<std::vector<float>>({{ 2.5044744, 3.02407265, 0.0561392419, 10.9337492 }}));
+    assert_float_2d_vectors_are_equal(vertices->get_outputs()[599], std::vector<std::vector<float>>({{ 2.034446, 2.76309252, 0.0561441183, 9.97161197 }}));
   }
 }
 
