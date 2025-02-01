@@ -11,36 +11,10 @@ import org.junit.jupiter.api.Assertions.*
 
 class RenderDocClientWindowsTest {
     companion object {
-        private suspend fun assertSessionFinishesImmediately(modelLifetime: Lifetime, capture: RdcCapture, input: Any, debugSingleCall: Boolean) {
-            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
-            val sessionLifetime = modelLifetime.createNested()
-            val debugSession = withContext(rdDispatcher) {
-                when (input) {
-                    is RdcDebugVertexInput -> (if (debugSingleCall) capture.debugVertex else capture.tryDebugVertex).startSuspending(sessionLifetime, input)
-                    is RdcDebugPixelInput -> (if (debugSingleCall) capture.debugPixel else capture.tryDebugPixel).startSuspending(sessionLifetime, input)
-                    else -> fail("Unexpected input type detected")
-                }
-            }
-
-            val frames = mutableListOf<RdcDebugStack>()
-            withContext(rdDispatcher) {
-                debugSession.currentStack.adviseSuspend(sessionLifetime, rdDispatcher) {
-                    if (it != null) {
-                        frames.add(it)
-                    } else {
-                        sessionLifetime.terminate()
-                    }
-                }
-            }
-
-            sessionLifetime.waitTermination()
-
-            assertEquals(emptyList<RdcDebugStack>(), frames)
-        }
 
         private suspend fun assertDebugVertexStepByStepDisassembly(modelLifetime: Lifetime, capture: RdcCapture) {
             // instantly finishing sessions
-            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugVertexInput(0u, 0u, emptyList()), true)
+            RenderDocClientTest.assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugVertexInput(0u, 0u, emptyList()), true)
 
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             run {
@@ -118,7 +92,7 @@ class RenderDocClientWindowsTest {
 
         private suspend fun assertDebugVertexStepByStepShaderLab(modelLifetime: Lifetime, capture: RdcCapture) {
             // instantly finishing sessions
-            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugVertexInput(66u, 10000u, emptyList()), true)
+            RenderDocClientTest.assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugVertexInput(66u, 10000u, emptyList()), true)
 
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
@@ -166,7 +140,7 @@ class RenderDocClientWindowsTest {
 
         private suspend fun assertTryDebugVertexStepByStep(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
             // instantly finishing sessions
-            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugVertexInput(0u, 15000u, breakpoints), false)
+            RenderDocClientTest.assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugVertexInput(0u, 15000u, breakpoints), false)
 
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
@@ -471,7 +445,7 @@ class RenderDocClientWindowsTest {
 
         private suspend fun assertDebugPixelStepByStepDisassembly(modelLifetime: Lifetime, capture: RdcCapture) {
             // instantly finishing sessions
-            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(0u, 0u, 0u, emptyList()), true)
+            RenderDocClientTest.assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(0u, 0u, 0u, emptyList()), true)
 
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
@@ -506,8 +480,8 @@ class RenderDocClientWindowsTest {
 
         private suspend fun assertDebugPixelStepByStepShaderLab(modelLifetime: Lifetime, capture: RdcCapture) {
             // instantly finishing sessions
-            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(739u, 826u, 914u, emptyList()), true)
-            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(749u, 826u, 914u, emptyList()), true)
+            RenderDocClientTest.assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(739u, 826u, 914u, emptyList()), true)
+            RenderDocClientTest.assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(749u, 826u, 914u, emptyList()), true)
 
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
@@ -545,8 +519,8 @@ class RenderDocClientWindowsTest {
 
         private suspend fun assertTryDebugPixelStepByStep(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
             // instantly finishing sessions
-            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(0u, 0u, 0u, breakpoints), false)
-            assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(0u, 826u, 914u, breakpoints), false)
+            RenderDocClientTest.assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(0u, 0u, 0u, breakpoints), false)
+            RenderDocClientTest.assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugPixelInput(0u, 826u, 914u, breakpoints), false)
 
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
