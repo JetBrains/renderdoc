@@ -14,14 +14,14 @@ endif ()
 
 if (APPLE)
     set_target_properties(RenderDocHost PROPERTIES
+            BUILD_RPATH "@executable_path"
             INSTALL_RPATH "@executable_path"
-            BUILD_WITH_INSTALL_RPATH FALSE
             MACOSX_RPATH TRUE
     )
 elseif (UNIX)
     set_target_properties(RenderDocHost PROPERTIES
+            BUILD_RPATH "$ORIGIN"
             INSTALL_RPATH "$ORIGIN"
-            BUILD_WITH_INSTALL_RPATH FALSE
     )
 endif()
 
