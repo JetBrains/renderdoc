@@ -298,10 +298,23 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("line", uint)
         }
 
+        /**
+         * Represents the current state of the debug session.
+         *
+         * - `currentStack`: Holds information about the current draw call and the current step.
+         * - `stageInfo`: Contains variables relevant to the current stage of the debug process.
+         * - `drawCallSession`: Is `null` if either:
+         *     - The current draw call is not debuggable and will be skipped.
+         *     - This is not the first step in the current draw call, avoiding duplication of draw call information.
+         **/
+        val rdcSessionState = structdef("rdcSessionState") {
+            field("currentStack", rdcDebugStack)
+            field("stageInfo", rdcStageInfo.nullable)
+            field("drawCallSession", rdcDrawCallDebugSession.nullable)
+        }
+
         val rdcDebugSession = classdef("rdcDebugSession") {
-            property("drawCallSession", rdcDrawCallDebugSession.nullable)
-            property("stageInfo", rdcStageInfo.nullable)
-            property("currentStack", rdcDebugStack.nullable)
+            property("sessionState", rdcSessionState.nullable)
 
             sink("stepInto", void)
             sink("stepOver", void)
