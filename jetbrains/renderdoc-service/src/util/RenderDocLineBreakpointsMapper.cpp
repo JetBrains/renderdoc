@@ -24,7 +24,7 @@ void RenderDocLineBreakpointsMapper::register_sources_usages_in_draw_call(uint32
         }
 
         prev_line_start = j + 1;
-        prev_source_line = std::stoul(matches[1]);
+        prev_source_line = static_cast<uint32_t>(std::stoul(matches[1]));
         if (matches.size() < 3 || !matches[2].matched)
           continue;
 

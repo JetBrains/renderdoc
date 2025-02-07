@@ -414,7 +414,7 @@ std::vector<std::vector<std::vector<float>>> RenderDocMeshPreviewService::transl
 
         const std::size_t comp_num = std::min<std::size_t>(list.size(), 4);
         result[row][col].resize(comp_num);
-        for(int comp = 0; comp < comp_num; comp++)
+        for(std::size_t comp = 0; comp < comp_num; comp++)
         {
           const RenderDocVertexResolver::VertexVar &v = list[comp];
 
