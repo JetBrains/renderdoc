@@ -56,7 +56,7 @@ void RenderDocReplay::calculate_effective_event_ids(const ActionDescription *par
 uint32_t RenderDocReplay::get_effective_event_id(int64_t event_id) const {
   if (const auto it = effective_event_ids.find(event_id); it != effective_event_ids.end())
     return it->second;
-  return event_id;
+  return static_cast<uint32_t>(event_id);
 }
 
 RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{replay::helpers::get_graphics_api(controller), replay::helpers::get_root_actions(controller)},
@@ -101,7 +101,7 @@ rd::Wrapper<model::RdcVertexStageInOutputs> RenderDocReplay::get_vertices_inoutp
 }
 
 rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifetime &session_lifetime, const model::RdcDebugVertexInput &input) const {
-  const DebugInput debug_input = {input.get_vertex()};
+  const DebugInput debug_input = { input.get_vertex() };
   const auto action = helpers::find_action(controller->GetRootActions().begin(), [id = input.get_eventId()](const ActionDescription &a) { return a.eventId == id; });
   auto &&draw_call_session = start_debug_vertex(action, debug_input);
   auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, draw_call_session, ShaderStage::Vertex, debug_input, true);
@@ -110,7 +110,7 @@ rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_vertex(const rd::Lifet
 }
 
 rd::Wrapper<RenderDocDebugSession> RenderDocReplay::debug_pixel(const rd::Lifetime &session_lifetime, const model::RdcDebugPixelInput &input) const {
-  const DebugInput debug_input = {input.get_x(), input.get_y()};
+  const DebugInput debug_input = {{ input.get_x(), input.get_y() }};
   const auto action = helpers::find_action(controller->GetRootActions().begin(), [event_id = input.get_eventId()](const ActionDescription &a) { return a.eventId == event_id; });
   auto &&draw_call_session = start_debug_pixel(action, debug_input);
   auto &&session = rd::wrapper::make_wrapper<RenderDocDebugSession>(session_lifetime, this, draw_call_session, ShaderStage::Pixel, debug_input, true);
@@ -131,7 +131,7 @@ rd::Wrapper<RenderDocDebugSession> RenderDocReplay::try_debug_vertex(const rd::L
 }
 
 rd::Wrapper<RenderDocDebugSession> RenderDocReplay::try_debug_pixel(const rd::Lifetime &session_lifetime, const model::RdcDebugPixelInput &input) const {
-  const DebugInput debug_input = {input.get_x(), input.get_y()};
+  const DebugInput debug_input = {{ input.get_x(), input.get_y() }};
   auto &&draw_call_session =  helpers::first_not_null_action<RenderDocDrawCallDebugSession>(controller->GetRootActions().begin(),
     [this, debug_input](const ActionDescription &a) {
       return helpers::is_draw_call(a) ? start_debug_pixel(&a, debug_input) : rd::Wrapper<RenderDocDrawCallDebugSession>(nullptr);

@@ -134,9 +134,9 @@ void RenderDocDebugSession::step_to_next_not_null_stack(const std::function<rd::
   const int64_t previous_id = previous_state ? previous_state->get_currentStack().get_drawCallId() : -1;
 
   rd::Wrapper<model::RdcDebugStack> stack;
-  const bool go_to_next = step_over && previous_state != nullptr && previous_state->get_currentStack().get_stepIndex() == -1 || !data->draw_call_session;
+  const bool go_to_next = (step_over && previous_state != nullptr && previous_state->get_currentStack().get_stepIndex() == -1) || !data->draw_call_session;
   if (go_to_next || !((stack = func()))) {
-    if (data->is_draw_call_debug || !data->was_inside_draw_call && !step_to_next_draw_call()) {
+    if (data->is_draw_call_debug || (!data->was_inside_draw_call && !step_to_next_draw_call())) {
       get_sessionState().set(rd::Wrapper<model::RdcSessionState>(nullptr));
       return;
     }
