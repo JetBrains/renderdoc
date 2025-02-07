@@ -19,14 +19,12 @@ class RenderDocReplay;
 
 class RenderDocDebugSessionData;
 
-struct DebugInput {
-  union {
-    struct {
-      uint32_t x;
-      uint32_t y;
-    } pixel;
-    uint32_t vertex_id;
-  };
+union DebugInput {
+  struct Pixel {
+    uint32_t x;
+    uint32_t y;
+  } pixel;
+  uint32_t vertex_id;
 };
 
 class RenderDocDebugSession : public model::RdcDebugSession  {
@@ -48,7 +46,7 @@ public:
 private:
   bool step_to_next_draw_call() const;
   void resume_to_next_not_null_stack() const;
-  void step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, bool step_over= false) const;
+  void step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, const bool step_over= false) const;
 };
 
 }
