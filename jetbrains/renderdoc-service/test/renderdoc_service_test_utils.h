@@ -43,8 +43,9 @@ struct FrameTracker {
   FrameTracker(const rd::Lifetime &lifetime, rd::Wrapper<RenderDocDebugSession> debug_session);
 };
 
+uint32_t get_current_draw_call_id(const rd::Wrapper<RenderDocDebugSession> &debug_session);
 void assert_session_finishes_immediately(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, const RdcDebugInput &input, bool debug_single_call);
-void assert_float_2d_vectors_are_equal(std::vector<std::vector<float>> actual, std::vector<std::vector<float>> expected);
+void assert_float_2d_vectors_are_equal(const std::vector<std::vector<float>> &actual, const std::vector<std::vector<float>> &expected);
 } // namespace jetbrains::renderdoc
 
 #endif // SERVICETESTUTILS_H

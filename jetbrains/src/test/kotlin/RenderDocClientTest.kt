@@ -1,15 +1,13 @@
 import com.jetbrains.rd.framework.createBackgroundScheduler
 import com.jetbrains.rd.framework.protocolOrThrow
 import com.jetbrains.rd.util.lifetime.Lifetime
+import com.jetbrains.rd.util.lifetime.LifetimeDefinition
 import com.jetbrains.rd.util.lifetime.waitTermination
 import com.jetbrains.rd.util.threading.coroutines.adviseSuspend
 import com.jetbrains.rd.util.threading.coroutines.asCoroutineDispatcher
 import com.jetbrains.rd.util.threading.coroutines.createTerminatedAfter
 import com.jetbrains.renderdoc.rdClient.RenderDocClient
-import com.jetbrains.renderdoc.rdClient.model.RdcCapture
-import com.jetbrains.renderdoc.rdClient.model.RdcDebugPixelInput
-import com.jetbrains.renderdoc.rdClient.model.RdcDebugStack
-import com.jetbrains.renderdoc.rdClient.model.RdcDebugVertexInput
+import com.jetbrains.renderdoc.rdClient.model.*
 import kotlinx.coroutines.*
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.*
@@ -24,6 +22,43 @@ import kotlin.io.path.toPath
 class RenderDocClientTest {
 
     companion object {
+
+        class FrameSessionTracker {
+            val frames = mutableListOf<RdcDebugStack>()
+            val drawCallChanges = mutableMapOf<Int, UInt>()
+            val sourceNamesPerDrawCall = mutableListOf<List<String>?>()
+
+            suspend fun init(sessionLifetime: LifetimeDefinition, rdDispatcher: CoroutineDispatcher, session: RdcDebugSession) {
+                withContext(rdDispatcher) {
+                    session.sessionState.adviseSuspend(sessionLifetime, rdDispatcher) { state ->
+                        if (state != null) {
+                            val stack = state.currentStack
+                            if (stack.drawCallId != frames.lastOrNull()?.drawCallId) {
+                                drawCallChanges[frames.size] = stack.drawCallId
+                                sourceNamesPerDrawCall.add(state.drawCallSession?.sourceFiles?.map { it.name })
+                            } else {
+                                assertNull(state.drawCallSession)
+                            }
+                            frames.add(stack)
+                        } else {
+                            sessionLifetime.terminate()
+                        }
+                    }
+                }
+            }
+        }
+
+        fun assertSourceNamesPerDrawCall(frameTracker: FrameSessionTracker, expected: List<List<String>?>, eventsToSkip: List<UInt>) {
+            assertEquals(frameTracker.drawCallChanges.size, frameTracker.sourceNamesPerDrawCall.size)
+            frameTracker.drawCallChanges.onEachIndexed { i, change ->
+                if (frameTracker.sourceNamesPerDrawCall[i] != null) {
+                    assertTrue(expected[i] == frameTracker.sourceNamesPerDrawCall[i])
+                } else {
+                    assertTrue(eventsToSkip.contains(change.value))
+                }
+            }
+        }
+
         suspend fun assertSessionFinishesImmediately(modelLifetime: Lifetime, capture: RdcCapture, input: Any, debugSingleCall: Boolean) {
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val sessionLifetime = modelLifetime.createNested()
@@ -35,20 +70,13 @@ class RenderDocClientTest {
                 }
             }
 
-            val frames = mutableListOf<RdcDebugStack>()
-            withContext(rdDispatcher) {
-                debugSession.currentStack.adviseSuspend(sessionLifetime, rdDispatcher) {
-                    if (it != null) {
-                        frames.add(it)
-                    } else {
-                        sessionLifetime.terminate()
-                    }
-                }
-            }
+            val frameTracker = FrameSessionTracker().also { it.init(sessionLifetime, rdDispatcher, debugSession) }
 
             sessionLifetime.waitTermination()
 
-            assertEquals(emptyList<RdcDebugStack>(), frames)
+            assertEquals(emptyList<RdcDebugStack>(), frameTracker.frames)
+            assertEquals(hashMapOf<Int, UInt>(), frameTracker.drawCallChanges)
+            assertEquals(emptyList<List<String>?>(), frameTracker.sourceNamesPerDrawCall)
         }
     }
 

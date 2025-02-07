@@ -22,13 +22,15 @@ class RenderDocClientMacosTest {
             val debugSession = withContext(rdDispatcher) {
                 capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(eventId, 0u, emptyList()))
             }
-            assertEquals("triangle.vert", Path(debugSession.drawCallSession.value!!.sourceFiles[0].name).name)
+            val drawCallSession = debugSession.sessionState.value!!.drawCallSession
+            assertNotNull(drawCallSession)
+            assertEquals("triangle.vert", Path(drawCallSession!!.sourceFiles[0].name).name)
 
             val lineNumbers = mutableListOf<UInt>()
             withContext(rdDispatcher) {
-                debugSession.currentStack.adviseSuspend(sessionLifetime, rdDispatcher) {
-                    if (it != null) {
-                        lineNumbers.add(it.lineStart)
+                debugSession.sessionState.adviseSuspend(sessionLifetime, rdDispatcher) { state ->
+                    if (state != null) {
+                        lineNumbers.add(state.currentStack.lineStart)
                     } else {
                         sessionLifetime.terminate()
                     }
@@ -54,9 +56,9 @@ class RenderDocClientMacosTest {
 
             val lineNumbers = mutableListOf<UInt>()
             withContext(rdDispatcher) {
-                debugSession.currentStack.adviseSuspend(sessionLifetime, rdDispatcher) {
-                    if (it != null) {
-                        lineNumbers.add(it.lineStart)
+                debugSession.sessionState.adviseSuspend(sessionLifetime, rdDispatcher) { state ->
+                    if (state != null) {
+                        lineNumbers.add(state.currentStack.lineStart)
                     } else {
                         sessionLifetime.terminate()
                     }
