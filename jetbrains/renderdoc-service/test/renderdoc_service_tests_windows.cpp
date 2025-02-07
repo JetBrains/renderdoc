@@ -104,7 +104,7 @@ void assert_try_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd
   const auto session_lifetime = lifetime.create_nested();
   const auto vertex_debug_session = replay->try_debug_vertex(session_lifetime, model::RdcDebugVertexInput(0, 35, breakpoints));
 
-  const auto eventId = vertex_debug_session->get_currentStack().get()->get_drawCallId();
+  const auto eventId = get_current_draw_call_id(vertex_debug_session);
   assert(eventId == 715);
 
   const FrameTracker frame_tracker(lifetime, vertex_debug_session);
@@ -215,7 +215,7 @@ void assert_try_debug_vertex_step_over(const rd::Lifetime &lifetime, const rd::W
   const auto session_lifetime = lifetime.create_nested();
   const auto vertex_debug_session = replay->try_debug_vertex(session_lifetime, model::RdcDebugVertexInput(0, vert_id, breakpoints));
 
-  const auto eventId = vertex_debug_session->get_currentStack().get()->get_drawCallId();
+  const auto eventId = get_current_draw_call_id(vertex_debug_session);
   assert(eventId == 715);
 
   const FrameTracker frame_tracker(lifetime, vertex_debug_session);
@@ -284,7 +284,7 @@ void assert_try_debug_uncommon_vertex_step_by_step(const rd::Lifetime &lifetime,
   const auto session_lifetime = lifetime.create_nested();
   const auto vertex_debug_session = replay->try_debug_vertex(session_lifetime, model::RdcDebugVertexInput(0, 100, breakpoints));
 
-  const auto eventId = vertex_debug_session->get_currentStack().get()->get_drawCallId();
+  const auto eventId = get_current_draw_call_id(vertex_debug_session);
   assert(eventId == 715);
 
   const FrameTracker frame_tracker(lifetime, vertex_debug_session);
@@ -390,7 +390,7 @@ void assert_try_debug_vertex_with_breakpoints(const rd::Lifetime &lifetime, cons
   const auto session_lifetime = lifetime.create_nested();
   const auto vertex_debug_session = replay->try_debug_vertex(session_lifetime, model::RdcDebugVertexInput(0, 17, breakpoints));
 
-  const auto eventId = vertex_debug_session->get_currentStack().get()->get_drawCallId();
+  const auto eventId = get_current_draw_call_id(vertex_debug_session);
   assert(eventId == 715);
 
   const FrameTracker frame_tracker(lifetime, vertex_debug_session);
@@ -511,7 +511,7 @@ void assert_try_debug_pixel_step_by_step(const rd::Lifetime &lifetime, const rd:
   const auto session_lifetime = lifetime.create_nested();
   const auto pixel_debug_session = replay->try_debug_pixel(session_lifetime, model::RdcDebugPixelInput(0, 914, 534, breakpoints));
 
-  const auto eventId = pixel_debug_session->get_currentStack().get()->get_drawCallId();
+  const auto eventId = get_current_draw_call_id(pixel_debug_session);
   assert(eventId == 749);
 
   const FrameTracker frame_tracker(lifetime, pixel_debug_session);
@@ -643,7 +643,7 @@ void assert_try_debug_pixel_with_breakpoints(const rd::Lifetime &lifetime, const
   const auto session_lifetime = lifetime.create_nested();
   const auto pixel_debug_session = replay->try_debug_pixel(session_lifetime, model::RdcDebugPixelInput(0, 914, 535, breakpoints));
 
-  const auto eventId = pixel_debug_session->get_currentStack().get()->get_drawCallId();
+  const auto eventId = get_current_draw_call_id(pixel_debug_session);
   assert(eventId == 715);
 
   const FrameTracker frame_tracker(lifetime, pixel_debug_session);
