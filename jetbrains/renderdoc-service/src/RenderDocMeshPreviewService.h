@@ -5,6 +5,7 @@
 
 #include <api/replay/renderdoc_replay.h>
 #include <map>
+#include <unordered_map>
 
 namespace jetbrains::renderdoc {
 namespace utils {
