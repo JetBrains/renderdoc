@@ -9,10 +9,20 @@ import kotlinx.coroutines.*
 import org.junit.jupiter.api.Assertions.*
 import kotlin.io.path.Path
 import kotlin.io.path.name
+import RenderDocClientTest.Companion.getFileUsagesInEvent
 
 
 class RenderDocClientMacosTest {
     companion object {
+        private fun assertActionsCollection(capture: RdcCapture) {
+            assertEquals(6, capture.rootActions.size)
+
+            val fileUsages = getFileUsagesInEvent(capture)
+            assertEquals(0, fileUsages.size)
+
+            assertEquals(capture.rootActions[2].flags.single(), RdcActionFlags.Drawcall)
+        }
+
         private suspend fun assertDebugVertexStepByStep(modelLifetime: Lifetime, capture: RdcCapture, eventId: UInt) {
             // instantly finishing sessions
             RenderDocClientTest.assertSessionFinishesImmediately(modelLifetime, capture, RdcDebugVertexInput(0u, 30u, emptyList()), true)
@@ -152,6 +162,7 @@ class RenderDocClientMacosTest {
         }
 
         suspend fun testRenderDocClient(lifetime: Lifetime, capture: RdcCapture) {
+            assertActionsCollection(capture)
             val drawAction =
                 capture.rootActions.first { it.flags.run { contains(RdcActionFlags.Drawcall) || contains(RdcActionFlags.MeshDispatch) } }
             assertDebugVertexStepByStep(lifetime, capture, drawAction.eventId)

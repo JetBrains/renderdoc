@@ -59,6 +59,36 @@ class RenderDocClientTest {
             }
         }
 
+        fun getFileUsagesInEvent(replay: RdcCapture) : Map<UInt, RdcSourceFilesInAction> {
+            val fileUsages = mutableMapOf<UInt, RdcSourceFilesInAction>()
+            for (action in replay.rootActions) {
+                for ((eventId, filesUsagesInfo) in getFileUsagesInEvent(action)) {
+                    fileUsages[eventId] = filesUsagesInfo
+                }
+            }
+            return fileUsages
+        }
+
+        private fun getFileUsagesInEvent(action: RdcAction) : Map<UInt, RdcSourceFilesInAction> {
+            if (action.children.isEmpty()) {
+                val fileUsages = action.usedSourceFilePaths ?: return emptyMap()
+                return mapOf(action.eventId to fileUsages)
+            }
+
+            val fileUsages = mutableMapOf<UInt, RdcSourceFilesInAction>()
+            for (child in action.children) {
+                for ((eventId, filesUsagesInfo) in getFileUsagesInEvent(child)) {
+                    fileUsages[eventId] = filesUsagesInfo
+                }
+            }
+            return fileUsages
+        }
+
+        fun assertSourceFilesUsages(value: RdcSourceFilesInAction, expectedEntrypoints: Set<String>, expectedOthers: Set<String>) {
+            assertEquals(expectedEntrypoints, value.entrypointPaths.toSet())
+            assertEquals(expectedOthers, value.otherIncludedFilePaths.toSet())
+        }
+
         suspend fun assertSessionFinishesImmediately(modelLifetime: Lifetime, capture: RdcCapture, input: Any, debugSingleCall: Boolean) {
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val sessionLifetime = modelLifetime.createNested()

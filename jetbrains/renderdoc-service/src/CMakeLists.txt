@@ -18,8 +18,9 @@ add_library(RenderDocService STATIC
         util/ArrayUtils.h
         util/RenderDocActionHelpers.cpp
         util/RenderDocActionHelpers.h
-        util/RenderDocLineBreakpointsMapper.cpp
-        util/RenderDocLineBreakpointsMapper.h
+        util/RenderDocSourceFileUtil.h
+        RenderDocLineBreakpointsMapper.cpp
+        RenderDocLineBreakpointsMapper.h
         RenderDocTexturePreviewService.cpp
         RenderDocTexturePreviewService.h
         RenderDocVertexResolver.cpp
