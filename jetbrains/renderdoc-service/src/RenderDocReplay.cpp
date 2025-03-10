@@ -4,7 +4,6 @@
 #include "RenderDocTexturePreviewService.h"
 #include "util/ArrayUtils.h"
 #include "util/RenderDocActionHelpers.h"
-#include "util/StringUtils.h"
 
 #include <api/replay/renderdoc_replay.h>
 
@@ -12,7 +11,7 @@ namespace jetbrains::renderdoc {
 namespace replay::helpers {
 
 std::vector<rd::Wrapper<model::RdcAction>> get_root_actions(IReplayController* controller) {
-  return renderdoc::helpers::get_actions_recursive(controller->GetRootActions(), controller->GetStructuredFile());
+  return renderdoc::helpers::get_actions_recursive(controller, controller->GetRootActions(), controller->GetStructuredFile());
 }
 
 model::RdcGraphicsApi get_graphics_api(IReplayController *controller) {

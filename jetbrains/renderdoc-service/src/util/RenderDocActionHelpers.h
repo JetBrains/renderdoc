@@ -3,6 +3,7 @@
 
 #include "RenderDocModel/RdcAction.Generated.h"
 #include <api/replay/renderdoc_replay.h>
+#include <set>
 #include <types/wrapper.h>
 
 struct SDFile;
@@ -12,7 +13,9 @@ namespace jetbrains::renderdoc::model {
 
 namespace jetbrains::renderdoc::helpers {
 model::RdcActionFlags map_flags(const ActionFlags flags);
-std::vector<rd::Wrapper<model::RdcAction>> get_actions_recursive(const rdcarray<ActionDescription> &descriptions, const SDFile &file);
+bool try_get_used_source_file_paths(const PipeState &pipeline, std::set<std::wstring> &entrypoints, std::set<std::wstring> &others);
+rd::Wrapper<model::RdcSourceFilesInAction> get_used_source_file_paths(IReplayController* controller, const ActionDescription &action);
+std::vector<rd::Wrapper<model::RdcAction>> get_actions_recursive(IReplayController* controller, const rdcarray<ActionDescription> &descriptions, const SDFile &file);
 const ActionDescription *get_next_action(const ActionDescription *current);
 const ActionDescription *find_action(const ActionDescription *begin, const std::function<bool(const ActionDescription &)> &predicate);
 const ActionDescription *get_action(const rdcarray<ActionDescription> &actions, uint32_t event_id);

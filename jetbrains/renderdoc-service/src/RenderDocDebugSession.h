@@ -9,7 +9,7 @@
 enum class ShaderStage : uint8_t;
 struct ShaderReflection;
 struct IReplayController;
-class ShaderDebugTrace;
+struct ShaderDebugTrace;
 struct ShaderDebugInfo;
 struct LineColumnInfo;
 

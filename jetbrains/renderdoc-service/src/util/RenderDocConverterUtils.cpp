@@ -4,6 +4,15 @@
 #include "StringUtils.h"
 
 namespace jetbrains::renderdoc {
+std::vector<rd::Wrapper<std::wstring>> RenderDocConverterUtils::wrapStringsSet(const std::set<std::wstring> &strings) {
+  std::vector<rd::Wrapper<std::wstring>> result;
+  result.reserve(strings.size());
+  for (const auto &str : strings) {
+    result.push_back(rd::Wrapper<std::wstring>(str));
+  }
+  return result;
+}
+
 rd::Wrapper<model::RdcShaderVariable> RenderDocConverterUtils::convertShaderVariable(const ShaderVariable &var) {
   model::RdcShaderValue value(ArrayUtils::CopyToVector(var.value.f32v),
     ArrayUtils::CopyToVector(var.value.s32v), ArrayUtils::CopyToVector(var.value.u32v),

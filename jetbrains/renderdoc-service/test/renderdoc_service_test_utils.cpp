@@ -36,6 +36,41 @@ uint32_t get_current_draw_call_id(const rd::Wrapper<RenderDocDebugSession> &debu
   return debug_session->get_sessionState().get()->get_currentStack().get_drawCallId();
 }
 
+std::map<uint32_t, model::RdcSourceFilesInAction> get_file_usages_in_events(const rd::Wrapper<RenderDocReplay> &replay) {
+  std::map<uint32_t, model::RdcSourceFilesInAction> result;
+  for (const auto &action : replay->get_rootActions()) {
+    for (const auto &[event_id, rdc_files_in_action] : get_file_usages_in_events(action)) {
+      result.try_emplace(event_id, rdc_files_in_action);
+    }
+  }
+  return result;
+}
+
+std::map<uint32_t, model::RdcSourceFilesInAction> get_file_usages_in_events(const rd::Wrapper<model::RdcAction>& action) {
+  const auto children = action->get_children();
+  if (children.empty()) {
+    const auto usages = action->get_usedSourceFilePaths();
+    if (!usages)
+      return {};
+    return { { action->get_eventId(), *usages } };
+  }
+
+  std::map<uint32_t, model::RdcSourceFilesInAction> result;
+  for (const auto &child : children) {
+    for (const auto &[event_id, rdc_files_in_action] : get_file_usages_in_events(child)) {
+      result.try_emplace(event_id, rdc_files_in_action);
+    }
+  }
+  return result;
+}
+
+void assert_source_file_usages(const model::RdcSourceFilesInAction &left, const std::set<std::wstring> &expected_entrypoints,  const std::set<std::wstring> &expected_others) {
+  const auto entries = unwrap_range(left.get_entrypointPaths());
+  assert(std::set(entries.begin(), entries.end()) == expected_entrypoints);
+  const auto others = unwrap_range(left.get_otherIncludedFilePaths());
+  assert(std::set(others.begin(), others.end()) == expected_others);
+}
+
 void assert_session_finishes_immediately(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, const RdcDebugInput &input, bool debug_single_call) {
   const auto session_lifetime = lifetime.create_nested();
   rd::Wrapper<RenderDocDebugSession> debug_session;
