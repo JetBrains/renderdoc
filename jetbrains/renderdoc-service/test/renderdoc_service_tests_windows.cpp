@@ -9,6 +9,55 @@
 
 using namespace jetbrains::renderdoc;
 
+void assert_actions_collection(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
+  assert(std::size(replay->get_rootActions()) == 13);
+
+  const auto file_usages = get_file_usages_in_events(replay);
+
+  assert(file_usages.size() == 4);
+
+  assert_source_file_usages(file_usages.at(715),
+    std::set<std::wstring>({L"Assets/ShaderForSphere.shader"}),
+    std::set<std::wstring>({
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/HLSLSupport.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderVariables.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderUtilities.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityCG.cginc"
+    })
+  );
+
+  assert_source_file_usages(file_usages.at(732),
+    std::set<std::wstring>({L"Assets/NewShader.shader"}),
+    std::set<std::wstring>({
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/HLSLSupport.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderVariables.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderUtilities.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityCG.cginc"
+    })
+  );
+
+  assert_source_file_usages(file_usages.at(749),
+    std::set<std::wstring>({L"Assets/Cube Shader.shader"}),
+    std::set<std::wstring>({
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/HLSLSupport.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderVariables.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderUtilities.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityCG.cginc",
+    L"Assets/mult.hlsl"
+    })
+  );
+
+  assert_source_file_usages(file_usages.at(765),
+    std::set<std::wstring>({L"Assets/Waves.shader"}),
+    std::set<std::wstring>({
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/HLSLSupport.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderVariables.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderUtilities.cginc",
+    L"C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityCG.cginc"
+    })
+  );
+}
+
 void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
   // instantly finishing sessions
   assert_session_finishes_immediately(lifetime, replay, RdcDebugInput({0, 0, {}}) , true);
@@ -93,6 +142,42 @@ void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wr
     assert(frame_tracker.draw_call_id_changes == std::vector({
       std::make_pair<std::size_t, int64_t>(0, 732),
       std::make_pair<std::size_t, int64_t>(8, -1)
+    }));
+  }
+}
+
+void assert_debug_vertex_with_breakpoints(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
+
+  // ShaderLab source file
+  {
+    const auto session_lifetime = lifetime.create_nested();
+    const auto debug_session = replay->debug_vertex(session_lifetime, model::RdcDebugVertexInput(749, 0, {}));
+
+    const FrameTracker frame_tracker(lifetime, debug_session);
+
+    debug_session->add_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Cube Shader.shader"), 57));
+    debug_session->add_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Cube Shader.shader"), 62));
+    debug_session->resume();
+    debug_session->resume();
+    debug_session->add_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/mult.hlsl"), 7));
+    debug_session->resume();
+
+    debug_session->add_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Cube Shader.shader"), 64));
+    debug_session->resume();
+    debug_session->resume();
+    debug_session->resume();
+
+    assert(frame_tracker.frames == std::vector({
+      {model::RdcDebugStack(749, 0, 0, 926, 926, 14, 48)},
+      {model::RdcDebugStack(749, 20, 0, 930, 934, 5, 19)},
+      {model::RdcDebugStack(749, 21, 0, 934, 934, 3, 19)},
+      {model::RdcDebugStack(749, 24, 0, 904, 904, 8, 12)},
+      {model::RdcDebugStack(749, 26, 0, 930, 934, 5, 19)},
+      {model::RdcDebugStack(749, 32, 0, 936, 936, 1, 10)},
+      rd::Wrapper<model::RdcDebugStack>(nullptr)}));
+    assert(frame_tracker.draw_call_id_changes == std::vector({
+      std::make_pair<std::size_t, int64_t>(0, 749),
+      std::make_pair<std::size_t, int64_t>(6, -1)
     }));
   }
 }
@@ -692,6 +777,10 @@ void assert_try_debug_pixel_with_breakpoints(const rd::Lifetime &lifetime, const
 
 void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
   {
+    const auto &vertices = replay->get_vertices_inoutputs(lifetime, 766);
+    assert(vertices == nullptr);
+  }
+  {
     const auto &vertices = replay->get_vertices_inoutputs(lifetime, 787);
     assert(vertices == nullptr);
   }
@@ -852,7 +941,7 @@ int main() {
     const auto replay = file->open_capture();
     assert(replay->get_api() == model::RdcGraphicsApi::D3D11);
 
-    assert(std::size(replay->get_rootActions()) == 13);
+    assert_actions_collection(lifetime, replay);
 
     std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> breakpoints = {
         {model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Cube Shader.shader"), 44)},
@@ -868,6 +957,7 @@ int main() {
     };
 
     assert_debug_vertex_step_by_step(lifetime, replay);
+    assert_debug_vertex_with_breakpoints(lifetime, replay);
     assert_try_debug_vertex_step_over(lifetime, replay, 35, breakpoints, {});
     assert_try_debug_vertex_step_over(lifetime, replay, 100, breakpoints, {732, 749});
     assert_try_debug_vertex_step_by_step(lifetime, replay, breakpoints);

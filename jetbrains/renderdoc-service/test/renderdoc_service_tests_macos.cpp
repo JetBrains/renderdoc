@@ -5,6 +5,17 @@
 
 using namespace jetbrains::renderdoc;
 
+void assert_actions_collection(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
+    assert(std::size(replay->get_rootActions()) == 6);
+
+    const auto file_usages = get_file_usages_in_events(replay);
+
+    assert(file_usages.size() == 0);
+
+    const auto action = replay->get_rootActions()[2];
+    assert(action->get_flags() == model::RdcActionFlags::Drawcall);
+}
+
 void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay, uint32_t eventId) {
   assert_session_finishes_immediately(lifetime, replay, RdcDebugInput(model::RdcDebugVertexInput(eventId, 30, {})), true);
 
@@ -113,12 +124,9 @@ int main() {
 
     const auto replay = file->open_capture();
     assert(replay->get_api() == model::RdcGraphicsApi::Vulkan);
-
-    assert(std::size(replay->get_rootActions()) == 6);
+    assert_actions_collection(lifetime, replay);
 
     const auto action = replay->get_rootActions()[2];
-    assert(action->get_flags() == model::RdcActionFlags::Drawcall);
-
     assert_debug_vertex_step_by_step(lifetime, replay, action->get_eventId());
     assert_debug_vertex_with_breakpoints(lifetime, replay, action->get_eventId());
     assert_try_debug_vertex(lifetime, replay);

@@ -8,11 +8,57 @@ import com.jetbrains.renderdoc.rdClient.model.*
 import kotlinx.coroutines.*
 import org.junit.jupiter.api.Assertions.*
 import RenderDocClientTest.Companion.FrameSessionTracker
+import RenderDocClientTest.Companion.assertSourceFilesUsages
 import RenderDocClientTest.Companion.assertSourceNamesPerDrawCall
+import RenderDocClientTest.Companion.getFileUsagesInEvent
 
 
 class RenderDocClientWindowsTest {
     companion object {
+
+        private fun assertActionsCollection(capture: RdcCapture) {
+            assertEquals(13, capture.rootActions.size)
+
+            val fileUsages = getFileUsagesInEvent(capture)
+            assertEquals(4, fileUsages.size)
+
+            assertSourceFilesUsages(
+                fileUsages[715u]!!,
+                setOf("Assets/ShaderForSphere.shader"),
+                setOf(
+                "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/HLSLSupport.cginc",
+                "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderVariables.cginc",
+                "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderUtilities.cginc",
+                "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityCG.cginc"))
+
+            assertSourceFilesUsages(
+                fileUsages[732u]!!,
+                setOf("Assets/NewShader.shader"),
+                setOf(
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/HLSLSupport.cginc",
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderVariables.cginc",
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderUtilities.cginc",
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityCG.cginc"))
+
+            assertSourceFilesUsages(
+                fileUsages[749u]!!,
+                setOf("Assets/Cube Shader.shader"),
+                setOf(
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/HLSLSupport.cginc",
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderVariables.cginc",
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderUtilities.cginc",
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityCG.cginc",
+                    "Assets/mult.hlsl"))
+
+            assertSourceFilesUsages(
+                fileUsages[765u]!!,
+                setOf("Assets/Waves.shader"),
+                setOf(
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/HLSLSupport.cginc",
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderVariables.cginc",
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderUtilities.cginc",
+                    "C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityCG.cginc"))
+        }
 
         private suspend fun assertDebugVertexStepByStepDisassembly(modelLifetime: Lifetime, capture: RdcCapture) {
             // instantly finishing sessions
@@ -132,6 +178,44 @@ class RenderDocClientWindowsTest {
                 ), frameTracker.frames
             )
             assertEquals(hashMapOf(0 to 732u), frameTracker.drawCallChanges)
+            val expectedSourcesFull = listOf(listOf("unnamed_shader"))
+            assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
+        }
+
+        private suspend fun assertDebugVertexWithBreakpoints(modelLifetime: Lifetime, capture: RdcCapture) {
+            val sessionLifetime = modelLifetime.createNested()
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val debugSession = withContext(rdDispatcher) {
+                capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(749u, 0u, emptyList()))
+            }
+
+            val frameTracker = FrameSessionTracker().also { it.init(sessionLifetime, rdDispatcher, debugSession) }
+            withContext(rdDispatcher) {
+                debugSession.addSourceBreakpoint.fire(RdcSourceBreakpoint("Assets/Cube Shader.shader", 57u))
+                debugSession.addSourceBreakpoint.fire(RdcSourceBreakpoint("Assets/Cube Shader.shader", 62u))
+                debugSession.resume.fire()
+                debugSession.resume.fire()
+
+                debugSession.addSourceBreakpoint.fire(RdcSourceBreakpoint("Assets/mult.hlsl", 7u))
+                debugSession.resume.fire()
+
+                debugSession.addSourceBreakpoint.fire(RdcSourceBreakpoint("Assets/Cube Shader.shader", 64u))
+                debugSession.resume.fire()
+                debugSession.resume.fire()
+                debugSession.resume.fire()
+            }
+
+            sessionLifetime.waitTermination()
+            assertEquals(listOf(
+                RdcDebugStack(749u, 0, 0, 926u, 926u, 14u, 48u),
+                RdcDebugStack(749u, 20, 0, 930u, 934u, 5u, 19u),
+                RdcDebugStack(749u, 21, 0, 934u, 934u, 3u, 19u),
+                RdcDebugStack(749u, 24, 0, 904u, 904u, 8u, 12u),
+                RdcDebugStack(749u, 26, 0, 930u, 934u, 5u, 19u),
+                RdcDebugStack(749u, 32, 0, 936u, 936u, 1u, 10u),
+            ), frameTracker.frames
+            )
+            assertEquals(hashMapOf(0 to 749u), frameTracker.drawCallChanges)
             val expectedSourcesFull = listOf(listOf("unnamed_shader"))
             assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
         }
@@ -946,8 +1030,10 @@ class RenderDocClientWindowsTest {
                 RdcSourceBreakpoint("Assets/Waves.shader", 58u),
             )
 
+            assertActionsCollection(capture)
             assertDebugVertexStepByStepDisassembly(lifetime, capture)
             assertDebugVertexStepByStepShaderLab(lifetime, capture)
+            assertDebugVertexWithBreakpoints(lifetime, capture)
             assertTryDebugVertexStepOver(lifetime, capture, 35u, breakpoints)
             assertTryDebugVertexStepOver(lifetime, capture, 100u, breakpoints, listOf(732u, 749u))
             assertTryDebugVertexStepByStep(lifetime, capture, breakpoints)

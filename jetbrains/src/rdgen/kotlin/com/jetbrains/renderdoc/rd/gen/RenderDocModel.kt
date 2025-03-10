@@ -325,11 +325,17 @@ object RenderDocModel : Ext(RenderDocRoot) {
             sink("removeSourceBreakpoint", rdcSourceBreakpoint)
         }
 
+        val rdcSourceFilesInAction = structdef("rdcSourceFilesInAction") {
+            field("entrypointPaths", immutableList(string))
+            field("otherIncludedFilePaths", immutableList(string))
+        }
+
         val rdcAction = structdef("rdcAction") {
             field("eventId", uint)
             field("actionId", uint)
             field("name", string)
             field("flags", rdcActionFlags)
+            field("usedSourceFilePaths", rdcSourceFilesInAction.nullable)
             field("children", array(this))
         }
 
