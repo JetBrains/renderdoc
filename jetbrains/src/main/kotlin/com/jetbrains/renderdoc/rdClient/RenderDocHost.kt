@@ -41,9 +41,10 @@ internal class RenderDocHost(private val lifetime: Lifetime, binDir: String) {
             val serverLogger = getLogger("RenderDocHost")
             val process = processBuilder.start()
             deferredExitCode = process.onExit().asDeferred()
-            deferredPort = CompletableDeferred(deferredExitCode)
+            deferredPort = CompletableDeferred()
 
-            deferredExitCode.invokeOnCompletion {
+            deferredExitCode.invokeOnCompletion { ex ->
+                deferredPort.completeExceptionally(ex ?: IllegalStateException("RenderDocHost process was terminated with exit code ${process.exitValue()}"))
                 serverLogger.info { "RenderDocHost exited with ${process.exitValue()} code" }
             }
 
@@ -84,13 +85,14 @@ internal class RenderDocHost(private val lifetime: Lifetime, binDir: String) {
             }
 
             lifetime.onTermination {
+                deferredPort.cancel()
                 process.destroy()
                 process.waitFor(1, TimeUnit.SECONDS)
             }
         }
     }
 
-    suspend fun getPort() = deferredPort.await()
+    suspend fun getPort(): Int = deferredPort.await()
 
     private fun logHostMessage(serverLogger: Logger, defaultLogLevel: LogLevel, message: String) {
         val matcher = HostMessageRegex.matcher(message)
