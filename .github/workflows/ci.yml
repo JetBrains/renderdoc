@@ -16,7 +16,7 @@ defaults:
 jobs:
   commit-msg:
     name: Commit message check
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: true
     steps:
@@ -47,7 +47,7 @@ jobs:
         fi
   clang-format:
     name: Code formatting check
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: true
     steps:
@@ -70,7 +70,7 @@ jobs:
   cmake-minimum:
     name: Baseline cmake check
     needs: [commit-msg, clang-format]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       QT_SELECT: qt5
     strategy:
@@ -163,7 +163,7 @@ jobs:
   docs:
     name: Documentation Build
     needs: [commit-msg, clang-format]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       QT_SELECT: qt5
     steps:
@@ -191,7 +191,7 @@ jobs:
   linux:
     name: Linux
     needs: [commit-msg, clang-format]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       QT_SELECT: qt5
     strategy:
@@ -225,20 +225,23 @@ jobs:
         sudo add-apt-repository -y 'deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-3.8 main'
         sudo apt-get update
         curl -LO http://archive.ubuntu.com/ubuntu/pool/main/libf/libffi/libffi6_3.2.1-8_amd64.deb
-        curl -LO http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/libobjc-5-dev_5.5.0-12ubuntu1_amd64.deb
-        curl -LO http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/gcc-5-base_5.5.0-12ubuntu1_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/libubsan0_5.4.0-6ubuntu1~16.04.12_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/libobjc-5-dev_5.4.0-6ubuntu1~16.04.12_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/gcc-5-base_5.4.0-6ubuntu1~16.04.12_amd64.deb
         curl -LO http://archive.ubuntu.com/ubuntu/pool/universe/i/isl-0.18/libisl15_0.18-4_amd64.deb
-        curl -LO http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/cpp-5_5.5.0-12ubuntu1_amd64.deb
-        curl -LO http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/libasan2_5.5.0-12ubuntu1_amd64.deb
-        curl -LO http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/libmpx0_5.5.0-12ubuntu1_amd64.deb
-        curl -LO http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/libgcc-5-dev_5.5.0-12ubuntu1_amd64.deb
-        curl -LO http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/gcc-5_5.5.0-12ubuntu1_amd64.deb
-        curl -LO http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/libstdc++-5-dev_5.5.0-12ubuntu1_amd64.deb
-        curl -LO http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/g++-5_5.5.0-12ubuntu1_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/cpp-5_5.4.0-6ubuntu1~16.04.12_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/libasan2_5.4.0-6ubuntu1~16.04.12_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/libmpx0_5.4.0-6ubuntu1~16.04.12_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/libgcc-5-dev_5.4.0-6ubuntu1~16.04.12_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/gcc-5_5.4.0-6ubuntu1~16.04.12_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/libstdc++-5-dev_5.4.0-6ubuntu1~16.04.12_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/libcilkrts5_5.4.0-6ubuntu1~16.04.12_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/g/gcc-5/g++-5_5.4.0-6ubuntu1~16.04.12_amd64.deb
+        curl -LO http://archive.ubuntu.com/ubuntu/pool/main/m/mpfr4/libmpfr4_3.1.4-1_amd64.deb
         sudo apt install ./*.deb
     - name: Install compilation dependencies
       run: |
-        sudo apt-get install -y libx11-dev mesa-common-dev libgl1-mesa-dev qtbase5-dev libqt5svg5-dev libqt5x11extras5-dev libxcb-keysyms1-dev libx11-xcb-dev clang++-3.8 g++-5
+        sudo apt-get install -y libx11-dev mesa-common-dev libgl1-mesa-dev qtbase5-dev libqt5svg5-dev libqt5x11extras5-dev libxcb-keysyms1-dev libx11-xcb-dev clang-3.8 g++-5 clang-12
     - name: Build
       run: |
         mkdir build
@@ -263,7 +266,7 @@ jobs:
   android:
     name: Android
     needs: [commit-msg, clang-format]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
       with:
@@ -274,6 +277,8 @@ jobs:
         java-version: '8'
     - name: Install Android SDK 3859397 and NDK r14b
       run: |
+        sudo apt-get update
+        sudo apt-get install -y libncurses5
         export ARCH=`uname -m`
         wget -q http://dl.google.com/android/repository/sdk-tools-linux-3859397.zip
         wget -q http://dl.google.com/android/repository/android-ndk-r14b-linux-${ARCH}.zip
