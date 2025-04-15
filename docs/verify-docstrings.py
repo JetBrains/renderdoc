@@ -133,6 +133,9 @@ def check_function(parent_name, objname, obj, source, global_func, typelist):
     if args.verbose:
         print("Checking {} function {}.{}".format('global' if global_func else 'member', parent_name, objname))
 
+    if obj.__class__ is staticmethod:
+        obj = obj.__func__
+
     docstring = obj.__doc__
 
     params = PARAM_PATTERN.findall(docstring)
