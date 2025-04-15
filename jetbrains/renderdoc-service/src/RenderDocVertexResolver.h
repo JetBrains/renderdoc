@@ -2,6 +2,7 @@
 #define RENDERDOCVARIABLESRESOLVER_H
 #include <api/replay/renderdoc_replay.h>
 #include <string>
+#include <limits>
 
 struct ResourceFormat;
 namespace jetbrains::renderdoc {
