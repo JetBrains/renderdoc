@@ -47,7 +47,7 @@ jobs:
             cc: clang
             cxx: clang++
           - name: Linux
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             os-family: ubuntu
             cc: clang
             cxx: clang++
