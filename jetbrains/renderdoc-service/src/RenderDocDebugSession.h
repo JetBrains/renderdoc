@@ -46,6 +46,8 @@ public:
 private:
   bool step_to_next_draw_call() const;
   void resume_to_next_not_null_stack() const;
+  rd::Wrapper<model::RdcDebugStack> try_resume_draw_call() const;
+  void update_session_state(const rd::Wrapper<model::RdcDebugStack> &stack, int64_t previous_id) const;
   void step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, const bool step_over= false) const;
 };
 

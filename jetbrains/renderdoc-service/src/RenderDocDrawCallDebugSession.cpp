@@ -57,6 +57,7 @@ struct RenderDocDrawCallDebugSessionData {
   std::unordered_set<RenderDocBreakpoint, RenderDocBreakpoint::hash> breakpoints;
   std::unordered_map<model::RdcSourceBreakpoint, std::vector<model::RdcLineBreakpoint>, RdcSourceBreakpointHash> breakpoints_mapping;
   size_t current_callstack_size;
+  bool finished = false;
 
   RenderDocDrawCallDebugSessionData(const ActionDescription *action, ShaderDebugTrace *trace, const std::shared_ptr<IReplayController> &controller, const ShaderDebugInfo *debug_info)
       : action(action), trace(trace), controller(controller), debug_info(debug_info), breakpoints_mapping({}), current_callstack_size(0) {
@@ -80,6 +81,7 @@ struct RenderDocDrawCallDebugSessionData {
         if (states.empty()) {
           calltrace = {};
           current_callstack_size = 0;
+          finished = true;
           return false;
         }
       } else {
@@ -140,6 +142,8 @@ struct RenderDocDrawCallDebugSessionData {
   ~RenderDocDrawCallDebugSessionData() { controller->FreeTrace(trace); }
 };
 
+
+
 rd::Wrapper<model::RdcSourceFile> RenderDocDrawCallDebugSession::get_disassembly(const std::shared_ptr<IReplayController> &controller, const ShaderReflection *reflection, const ShaderStage &stage, uint32_t event_id, bool is_source) {
   if (is_source || !controller || !reflection)
     return {rd::Wrapper<model::RdcSourceFile>(nullptr)};
@@ -174,6 +178,11 @@ RenderDocDrawCallDebugSession::RenderDocDrawCallDebugSession(const ActionDescrip
       data(std::make_shared<RenderDocDrawCallDebugSessionData>(action, trace, controller, debug_info)) {
 }
 
+bool RenderDocDrawCallDebugSession::can_perform_step() const {
+  return !data->finished;
+}
+
+
 rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_into() const {
   if (!data->do_step())
     return rd::Wrapper<model::RdcDebugStack>(nullptr);
@@ -189,9 +198,13 @@ rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::make_debug_stac
 }
 
 rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_over() const {
+  const auto& breakpoints = data->breakpoints;
+  const auto& end = breakpoints.end();
+
   const auto stack_size = data->current_callstack_size;
   while (data->do_step()) {
-    if (data->current_state->callstack.size() <= stack_size) {
+    auto const& line_info = data->current_instruction.lineInfo;
+    if (data->current_state->callstack.size() <= stack_size || breakpoints.find(RenderDocBreakpoint(line_info)) != end) {
       return make_debug_stack(data->current_state->stepIndex, data->current_instruction.lineInfo);
     }
   }
