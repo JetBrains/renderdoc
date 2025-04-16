@@ -197,7 +197,7 @@ class RenderDocClientWindowsTest {
                 debugSession.resume.fire()
 
                 debugSession.addSourceBreakpoint.fire(RdcSourceBreakpoint("Assets/mult.hlsl", 7u))
-                debugSession.resume.fire()
+                debugSession.stepOver.fire()
 
                 debugSession.addSourceBreakpoint.fire(RdcSourceBreakpoint("Assets/Cube Shader.shader", 64u))
                 debugSession.resume.fire()
@@ -248,23 +248,19 @@ class RenderDocClientWindowsTest {
                 debugSession.stepOver.fire()
                 debugSession.stepOver.fire()
 
-                //skip 749
                 debugSession.stepOver.fire()
+                // event 749
+                repeat(11) {
+                    debugSession.stepOver.fire()
+                }
                 debugSession.stepOver.fire()
 
                 //event 765
                 debugSession.stepInto.fire()
                 debugSession.stepInto.fire()
-                debugSession.stepOver.fire()
-                debugSession.stepOver.fire()
-                debugSession.stepOver.fire()
-                debugSession.stepOver.fire()
-                debugSession.stepOver.fire()
-                debugSession.stepOver.fire()
-                debugSession.stepOver.fire()
-                debugSession.stepOver.fire()
-                debugSession.stepOver.fire()
-
+                repeat(10) {
+                    debugSession.stepOver.fire()
+                }
                 debugSession.stepInto.fire()
 
                 //event 784
@@ -276,6 +272,7 @@ class RenderDocClientWindowsTest {
             }
 
             sessionLifetime.waitTermination()
+
             assertEquals(listOf(
                 RdcDebugStack(715u, 0, 0, 883u, 883u, 11u, 45u),
                 RdcDebugStack(715u, 19, 0, 883u, 883u, 1u, 45u),
@@ -291,6 +288,18 @@ class RenderDocClientWindowsTest {
                 RdcDebugStack(732u, 21, 0, 920u, 920u, 1u, 10u),
                 RdcDebugStack(732u, -1, -1, 0u, 0u, 0u, 0u),
 
+                RdcDebugStack(749u, -1, -1, 0u, 0u, 0u, 0u),
+                RdcDebugStack(749u, 0, 0, 926u, 926u, 14u, 48u),
+                RdcDebugStack(749u, 19, 0, 926u, 926u, 1u, 48u),
+                RdcDebugStack(749u, 20, 0, 930u, 934u, 5u, 19u),
+                RdcDebugStack(749u, 21, 0, 934u, 934u, 3u, 19u),
+                RdcDebugStack(749u, 24, 0, 904u, 904u, 8u, 12u),
+                RdcDebugStack(749u, 26, 0, 930u, 934u, 5u, 19u),
+                RdcDebugStack(749u, 28, 0, 935u, 935u, 12u, 51u),
+                RdcDebugStack(749u, 29, 0, 935u, 935u, 12u, 70u),
+                RdcDebugStack(749u, 30, 0, 935u, 935u, 76u, 91u),
+                RdcDebugStack(749u, 31, 0, 935u, 935u, 10u, 91u),
+                RdcDebugStack(749u, 32, 0, 936u, 936u, 1u, 10u),
                 RdcDebugStack(749u, -1, -1, 0u, 0u, 0u, 0u),
 
                 RdcDebugStack(765u, -1, -1, 0u, 0u, 0u, 0u),
@@ -312,7 +321,62 @@ class RenderDocClientWindowsTest {
                 RdcDebugStack(784u, 2, -1, 17u, 17u, 0u, 0u),
                 RdcDebugStack(784u, 3, -1, 18u, 18u, 0u, 0u),
             ), frameTracker.frames)
-            assertEquals(hashMapOf(0 to 715u, 6 to 732u, 12 to 749u, 13 to 765u, 25 to 784u), frameTracker.drawCallChanges)
+            assertEquals(hashMapOf(0 to 715u, 6 to 732u, 12 to 749u, 25 to 765u, 37 to 784u), frameTracker.drawCallChanges)
+            val expectedSourcesFull = listOf(listOf("unnamed_shader"), listOf("unnamed_shader"), listOf("unnamed_shader"), listOf("unnamed_shader"), emptyList())
+            assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
+        }
+
+        private suspend fun assertCaptureThroughDebugWithBreakpoints(modelLifetime: Lifetime, capture: RdcCapture) {
+            val sessionLifetime = modelLifetime.createNested()
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val debugSession = withContext(rdDispatcher) {
+                capture.tryDebugVertex.startSuspending(sessionLifetime,
+                    RdcDebugVertexInput(0u, 17u,
+                        listOf(
+                            RdcSourceBreakpoint("Assets/ShaderForSphere.shader", 22u),
+                            RdcSourceBreakpoint("Assets/NewShader.shader", 45u),
+                            RdcSourceBreakpoint("Assets/NewShader.shader", 59u),
+                            RdcSourceBreakpoint("Assets/Cube Shader.shader", 64u),
+                            RdcSourceBreakpoint("Assets/mult.hlsl", 3u),
+                            RdcSourceBreakpoint("Assets/mult.hlsl", 7u),
+                        )))
+            }
+
+            val frameTracker = FrameSessionTracker().also { it.init(sessionLifetime, rdDispatcher, debugSession) }
+            withContext(rdDispatcher) {
+                debugSession.stepOver.fire() // step out from 715
+                debugSession.stepOver.fire() // step to 732
+                debugSession.stepOver.fire() // on breakpoint in 732
+                debugSession.stepOver.fire() // step out from 732
+                debugSession.stepOver.fire() // step to 749
+                debugSession.stepOver.fire() // on breakpoint in 749
+                debugSession.resume.fire()   // on breakpoint in 749
+                debugSession.stepOver.fire() // step out from 749
+                debugSession.stepOver.fire() // step to 765
+                debugSession.stepOver.fire() // step to 784
+                debugSession.resume.fire()   // run till the end
+            }
+
+            sessionLifetime.waitTermination()
+            assertEquals(listOf(
+                RdcDebugStack(715u, 22, 0, 885u, 885u, 1u, 10u),
+                RdcDebugStack(715u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(732u, -1, -1, 0u, 0u, 0u, 0u),
+                RdcDebugStack(732u, 21, 0, 920u, 920u, 1u, 10u),
+                RdcDebugStack(732u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(749u, -1, -1, 0u, 0u, 0u, 0u),
+                RdcDebugStack(749u, 24, 0, 904u, 904u, 8u, 12u),
+                RdcDebugStack(749u, 32, 0, 936u, 936u, 1u, 10u),
+                RdcDebugStack(749u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(765u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(784u, -1, -1, 0u, 0u, 0u, 0u),
+            ), frameTracker.frames)
+            assertEquals(hashMapOf(0 to 715u, 2 to 732u, 5 to 749u, 9 to 765u, 10 to 784u), frameTracker.drawCallChanges)
+
             val expectedSourcesFull = listOf(listOf("unnamed_shader"), listOf("unnamed_shader"), listOf("unnamed_shader"), listOf("unnamed_shader"), emptyList())
             assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
         }
@@ -734,6 +798,78 @@ class RenderDocClientWindowsTest {
             assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
         }
 
+        private suspend fun assertTryDebugPixelStepOver(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
+            val sessionLifetime = modelLifetime.createNested()
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val debugSession = withContext(rdDispatcher) {
+                capture.tryDebugPixel.startSuspending(sessionLifetime, RdcDebugPixelInput(0u, 914u, 534u, breakpoints))
+            }
+
+            val frameTracker = FrameSessionTracker().also { it.init(sessionLifetime, rdDispatcher, debugSession) }
+            withContext(rdDispatcher) {
+                // event 715
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+
+                debugSession.stepOver.fire()
+                debugSession.stepInto.fire() // try step into 732, should skip
+
+                // event 749
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+
+                debugSession.stepOver.fire()
+
+                // event 765
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+
+                for (eventId in listOf(784, 811, 824, 837)) {
+                    // skip these events, should not go into
+                    debugSession.stepOver.fire()
+                }
+                debugSession.resume.fire()
+            }
+
+            sessionLifetime.waitTermination()
+
+            assertEquals(listOf(
+                RdcDebugStack(715u, 0, 0, 890u, 890u, 8u, 30u),
+                RdcDebugStack(715u, 1, 0, 890u, 890u, 1u, 32u),
+                RdcDebugStack(715u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(732u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(749u, -1, -1, 0u, 0u, 0u, 0u),
+                RdcDebugStack(749u, 1, 0, 944u, 944u, 8u, 23u),
+                RdcDebugStack(749u, 4, 0, 900u, 900u, 8u, 12u),
+                RdcDebugStack(749u, 6, 0, 944u, 944u, 27u, 50u),
+                RdcDebugStack(749u, 7, 0, 944u, 944u, 8u, 50u),
+                RdcDebugStack(749u, 8, 0, 944u, 944u, 1u, 52u),
+                RdcDebugStack(749u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(765u, -1, -1, 0u, 0u, 0u, 0u),
+                RdcDebugStack(765u, 0, 0, 908u, 908u, 1u, 15u),
+                RdcDebugStack(765u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(784u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(811u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(824u, -1, -1, 0u, 0u, 0u, 0u),
+
+                RdcDebugStack(837u, -1, -1, 0u, 0u, 0u, 0u),
+            ), frameTracker.frames)
+            assertEquals(hashMapOf(0 to 715u, 3 to 732u, 4 to 749u, 11 to 765u, 14 to 784u, 15 to 811u, 16 to 824u, 17 to 837u), frameTracker.drawCallChanges)
+
+            val expectedSourcesFull = listOf(listOf("unnamed_shader"), null, listOf("unnamed_shader"), listOf("unnamed_shader"), emptyList(), emptyList(), null, null)
+            assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, listOf(732u, 824u, 837u))
+        }
+
         private suspend fun assertVerticesTable(modelLifetime: Lifetime, capture: RdcCapture) {
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
 
@@ -1017,7 +1153,13 @@ class RenderDocClientWindowsTest {
         }
 
         suspend fun testRenderDocClient(lifetime: Lifetime, capture: RdcCapture) {
-            val breakpoints = listOf(
+            // The following draw calls use user's shader files:
+            // 715 - Assets/ShaderForSphere.shader
+            // 732 - Assets/NewShader.shader
+            // 749 - Assets/Cube Shader.shader, Assets/mult.hlsl
+            // 765 - Assets/Waves.shader
+
+            val breakpoints = mutableListOf(
                 RdcSourceBreakpoint("Assets/Cube Shader.shader", 44u),
                 RdcSourceBreakpoint("Assets/Cube Shader.shader", 62u),
                 RdcSourceBreakpoint("Assets/Cube Shader.shader", 72u),
@@ -1026,24 +1168,29 @@ class RenderDocClientWindowsTest {
                 RdcSourceBreakpoint("Assets/ShaderForSphere.shader", 20u),
                 RdcSourceBreakpoint("Assets/mult.hlsl", 3u),
                 RdcSourceBreakpoint("Assets/mult.hlsl", 7u),
-                RdcSourceBreakpoint("Assets/Waves.shader", 47u),
-                RdcSourceBreakpoint("Assets/Waves.shader", 58u),
             )
 
             assertActionsCollection(capture)
             assertDebugVertexStepByStepDisassembly(lifetime, capture)
             assertDebugVertexStepByStepShaderLab(lifetime, capture)
             assertDebugVertexWithBreakpoints(lifetime, capture)
-            assertTryDebugVertexStepOver(lifetime, capture, 35u, breakpoints)
-            assertTryDebugVertexStepOver(lifetime, capture, 100u, breakpoints, listOf(732u, 749u))
+
+            assertTryDebugVertexStepOver(lifetime, capture, 35u, listOf(RdcSourceBreakpoint("Assets/ShaderForSphere.shader", 20u)), listOf(811u))
+            assertTryDebugVertexStepOver(lifetime, capture, 100u, breakpoints, listOf(732u, 749u, 811u))
+            breakpoints += listOf(RdcSourceBreakpoint("Assets/Waves.shader", 47u), RdcSourceBreakpoint("Assets/Waves.shader", 58u))
+
             assertTryDebugVertexStepByStep(lifetime, capture, breakpoints)
             assertTryDebugUncommonVertexStepByStep(lifetime, capture, breakpoints)
             assertTryDebugVertexWithBreakpoints(lifetime, capture, breakpoints)
+            assertCaptureThroughDebugWithBreakpoints(lifetime, capture)
 
             assertDebugPixelStepByStepDisassembly(lifetime, capture)
             assertDebugPixelStepByStepShaderLab(lifetime, capture)
             assertTryDebugPixelStepByStep(lifetime, capture, breakpoints)
+
+            breakpoints.add(RdcSourceBreakpoint("Assets/ShaderForSphere.shader", 27u))
             assertTryDebugPixelWithBreakpoints(lifetime, capture, breakpoints)
+            assertTryDebugPixelStepOver(lifetime, capture, breakpoints)
 
             assertVerticesTable(lifetime, capture)
             assertTexturesOutputs(lifetime, capture)
