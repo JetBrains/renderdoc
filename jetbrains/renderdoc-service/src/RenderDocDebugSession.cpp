@@ -3,7 +3,6 @@
 #include "RenderDocReplay.h"
 #include "types/wrapper.h"
 #include "util/RenderDocActionHelpers.h"
-#include "util/RenderDocConverterUtils.h"
 
 #include <api/replay/renderdoc_replay.h>
 #include <optional>
@@ -16,7 +15,6 @@ public:
   const ShaderStage stage;
   const RenderDocReplay * replay;
   const ActionDescription * current_action;
-  bool was_inside_draw_call = true;
   rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session;
   std::unordered_set<model::RdcSourceBreakpoint, RdcSourceBreakpointHash> source_breakpoints;
 
@@ -101,8 +99,6 @@ bool RenderDocDebugSession::step_to_next_draw_call() const {
     for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), data->source_breakpoints)) {
       add_breakpoint(bp.get_sourceFileIndex(), bp.get_line());
     }
-  } else {
-    data->was_inside_draw_call = true;
   }
 
   return true;
@@ -112,51 +108,76 @@ void RenderDocDebugSession::resume_to_next_not_null_stack() const {
   int64_t previous_id = -1;
   if (get_sessionState().has_value() && get_sessionState().get())
     previous_id = get_sessionState().get()->get_currentStack().get_drawCallId();
+
+  if (data->is_draw_call_debug) {
+    update_session_state(data->draw_call_session->resume(), previous_id);
+    return;
+  }
+
   rd::Wrapper<model::RdcDebugStack> stack;
   while (!data->draw_call_session || !((stack = data->draw_call_session->resume()))) {
-    if (data->is_draw_call_debug || !step_to_next_draw_call()) {
-      get_sessionState().set(rd::Wrapper<model::RdcSessionState>(nullptr));
+    if (!step_to_next_draw_call()) {
+      update_session_state(rd::Wrapper<model::RdcDebugStack>(nullptr), previous_id);
       return;
     }
   }
 
-  data->was_inside_draw_call = true;
-  const auto& draw_call = previous_id != stack->get_drawCallId() ?
-    static_cast<const rd::Wrapper<model::RdcDrawCallDebugSession>&>(data->draw_call_session) : rd::Wrapper<model::RdcDrawCallDebugSession>(nullptr);
-  get_sessionState().set(rd::wrapper::make_wrapper<model::RdcSessionState>(
-    stack, rd::wrapper::make_wrapper<model::RdcStageInfo>(
-        data->draw_call_session->get_source_variables(), data->draw_call_session->get_updated_variables()
-      ), draw_call));
+  update_session_state(stack, previous_id);
+}
+
+rd::Wrapper<model::RdcDebugStack> RenderDocDebugSession::try_resume_draw_call() const {
+  if (!data->draw_call_session)
+    return rd::Wrapper<model::RdcDebugStack>(nullptr);
+  return data->draw_call_session->resume();
+}
+
+void RenderDocDebugSession::update_session_state(const rd::Wrapper<model::RdcDebugStack> &stack, int64_t previous_id = -1) const {
+  if (!stack) {
+    get_sessionState().set(rd::Wrapper<model::RdcSessionState>(nullptr));
+    return;
+  }
+
+  const auto &draw_call =
+      previous_id != stack->get_drawCallId() ? static_cast<const rd::Wrapper<model::RdcDrawCallDebugSession> &>(data->draw_call_session) : rd::Wrapper<model::RdcDrawCallDebugSession>(nullptr);
+
+  auto stage_info = rd::Wrapper<model::RdcStageInfo>(nullptr);
+  if (stack->get_stepIndex() != -1) {
+    stage_info = rd::wrapper::make_wrapper<model::RdcStageInfo>(data->draw_call_session->get_source_variables(), data->draw_call_session->get_updated_variables());
+  }
+
+  get_sessionState().set(rd::wrapper::make_wrapper<model::RdcSessionState>(stack, stage_info, draw_call));
 }
 
 void RenderDocDebugSession::step_to_next_not_null_stack(const std::function<rd::Wrapper<model::RdcDebugStack>()> &func, bool step_over) const {
   const auto &previous_state = get_sessionState().has_value() ? get_sessionState().get() : rd::Wrapper<model::RdcSessionState>(nullptr);
   const int64_t previous_id = previous_state ? previous_state->get_currentStack().get_drawCallId() : -1;
 
-  rd::Wrapper<model::RdcDebugStack> stack;
-  const bool go_to_next = (step_over && previous_state != nullptr && previous_state->get_currentStack().get_stepIndex() == -1) || !data->draw_call_session;
-  if (go_to_next || !((stack = func()))) {
-    if (data->is_draw_call_debug || (!data->was_inside_draw_call && !step_to_next_draw_call())) {
-      get_sessionState().set(rd::Wrapper<model::RdcSessionState>(nullptr));
-      return;
-    }
-
-    data->was_inside_draw_call = false;
-    const auto& draw_call = previous_id != data->current_action->eventId ?
-      static_cast<const rd::Wrapper<model::RdcDrawCallDebugSession>&>(data->draw_call_session) : rd::Wrapper<model::RdcDrawCallDebugSession>(nullptr);
-    get_sessionState().set(rd::wrapper::make_wrapper<model::RdcSessionState>(
-      rd::wrapper::make_wrapper<model::RdcDebugStack>(data->current_action->eventId, -1, -1, 0, 0, 0, 0),
-      rd::Wrapper<model::RdcStageInfo>(nullptr), draw_call));
+  if (data->is_draw_call_debug) {
+    update_session_state(func(), previous_id);
     return;
   }
 
-  data->was_inside_draw_call = true;
-  const auto& draw_call = previous_id != stack->get_drawCallId() ?
-    static_cast<const rd::Wrapper<model::RdcDrawCallDebugSession>&>(data->draw_call_session) : rd::Wrapper<model::RdcDrawCallDebugSession>(nullptr);
-  get_sessionState().set(rd::wrapper::make_wrapper<model::RdcSessionState>(
-      stack, rd::wrapper::make_wrapper<model::RdcStageInfo>(
-          data->draw_call_session->get_source_variables(), data->draw_call_session->get_updated_variables()
-        ), draw_call));
+  rd::Wrapper<model::RdcDebugStack> stack;
+
+  const bool prev_state_is_outside_draw_call = previous_state != nullptr && previous_state->get_currentStack().get_stepIndex() == -1;
+  bool draw_call_was_visited = !prev_state_is_outside_draw_call || data->draw_call_session == nullptr || !data->draw_call_session->can_perform_step();
+
+  if (step_over && prev_state_is_outside_draw_call && !draw_call_was_visited) {
+    stack = data->draw_call_session->resume();
+    draw_call_was_visited = true;
+  }
+
+  if (stack == nullptr && (prev_state_is_outside_draw_call && draw_call_was_visited || !((stack = func())))) {
+    if (prev_state_is_outside_draw_call && !step_to_next_draw_call()) {
+      update_session_state(rd::Wrapper<model::RdcDebugStack>(nullptr), previous_id);
+      return;
+    }
+
+    update_session_state(rd::wrapper::make_wrapper<model::RdcDebugStack>(data->current_action->eventId, -1, -1, 0, 0, 0, 0), previous_id);
+    return;
+  }
+
+  update_session_state(stack, previous_id);
 }
 
 void RenderDocDebugSession::add_breakpoints_from_sources(const std::vector<rd::Wrapper<model::RdcSourceBreakpoint>> &breakpoints) const {
