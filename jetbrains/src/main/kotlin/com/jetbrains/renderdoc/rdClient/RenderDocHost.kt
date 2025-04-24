@@ -44,8 +44,9 @@ internal class RenderDocHost(private val lifetime: Lifetime, binDir: String) {
             deferredPort = CompletableDeferred()
 
             deferredExitCode.invokeOnCompletion { ex ->
-                deferredPort.completeExceptionally(ex ?: IllegalStateException("RenderDocHost process was terminated with exit code ${process.exitValue()}"))
-                serverLogger.info { "RenderDocHost exited with ${process.exitValue()} code" }
+                val exitCode = process.exitValue()
+                deferredPort.completeExceptionally(RenderDocHostException(exitCode))
+                serverLogger.info { "RenderDocHost exited with $exitCode code" }
             }
 
             // Detailed methods to handle processDataReceived, errorDataReceived and logHostMessage are omitted for brevity
