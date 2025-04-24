@@ -9,6 +9,9 @@ import com.jetbrains.renderdoc.rdClient.model.RenderDocModel
 import com.jetbrains.renderdoc.rdClient.model.renderDocModel
 
 @PublicApi
+class RenderDocHostException(val exitCode: Int) : RuntimeException("RenderDocHost process exited with $exitCode code")
+
+@PublicApi
 class RenderDocClient(lifetime: Lifetime, @PublicApi val scheduler: IScheduler, sessionId: Long, port: Int) {
     companion object {
         suspend fun createWithHost(lifetime: Lifetime, scheduler: IScheduler, sessionId: Long, binDir: String): RenderDocClient {
