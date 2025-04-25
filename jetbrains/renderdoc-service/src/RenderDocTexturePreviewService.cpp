@@ -1,5 +1,6 @@
 #include "RenderDocTexturePreviewService.h"
 
+#include "RenderDocCaptureContext.h"
 #include "RenderDocModel/RdcTextureOutputs.Generated.h"
 #include "RenderDocModel/RdcWindowOutputData.Generated.h"
 #include "util/ArrayUtils.h"
@@ -9,7 +10,7 @@ namespace jetbrains::renderdoc {
 
 RenderDocTexturePreviewService::Dimensions::Dimensions(int32_t width, int32_t height) : width(width), height(height) {}
 
-RenderDocTexturePreviewService::RenderDocTexturePreviewService(IReplayController *controller) : controller(controller) {
+RenderDocTexturePreviewService::RenderDocTexturePreviewService(IReplayController *controller, const std::shared_ptr<RenderDocCaptureContext> &capture_context) :controller(controller), capture_context(capture_context) {
 }
 
 Descriptor RenderDocTexturePreviewService::create_descriptor(ResourceId id) {
@@ -81,6 +82,30 @@ Descriptor RenderDocTexturePreviewService::get_depth_target(const ActionDescript
   return controller->GetPipelineState().GetDepthTarget();
 }
 
+std::wstring RenderDocTexturePreviewService::get_texture_name(const ActionDescription *action, const Descriptor &desc) const {
+  bool copy, clear, compute;
+  calculate_action_context(action, copy, clear, compute);
+
+  const std::wstring bind_name = (copy || clear) ? L"Destination" : L"";
+  if (desc.resource == ResourceId::Null())
+    return L"";
+
+  std::wstringstream name_stream(bind_name);
+
+  if (!capture_context->has_auto_generated_name(desc.resource)) {
+    if (name_stream.tellp() != 0) {
+      name_stream << " = ";
+    }
+    name_stream << capture_context->get_resource_name(desc.resource);
+  }
+
+  if (name_stream.tellp() == 0) {
+    name_stream << capture_context->get_resource_name(desc.resource);
+  }
+
+  return name_stream.str();
+}
+
 rd::Wrapper<model::RdcTextureOutputs> RenderDocTexturePreviewService::get_outputs(const ActionDescription *action, uint32_t event_id) {
   if (max_dimensions.find(event_id) == max_dimensions.end()) {
     calculate_dimensions(action, event_id);
@@ -99,16 +124,18 @@ rd::Wrapper<model::RdcTextureOutputs> RenderDocTexturePreviewService::get_output
     color_outs.reserve(color_outputs_cache[event_id].size());
 
     for (const auto &[desc, dim] : color_outputs_cache[event_id]) {
+      const auto &name = get_texture_name(action, desc);
       const std::vector<uint8_t> buffer = ArrayUtils::CopyToVector(output->DrawThumbnail(dim.width, dim.height, desc.resource, {}, CompType::Typeless));
-      color_outs.emplace_back(rd::wrapper::make_wrapper<model::RdcWindowOutputData>(dim.width, dim.height, buffer));
+      color_outs.emplace_back(rd::wrapper::make_wrapper<model::RdcWindowOutputData>(name, dim.width, dim.height, buffer));
     }
   }
 
   rd::Wrapper<model::RdcWindowOutputData> depth_out(nullptr);
   if (const auto &depth_it = depth_outputs_cache.find(event_id); depth_it != depth_outputs_cache.end()) {
     const auto &[desc, dim] = depth_it->second;
+    const auto &name = get_texture_name(action, desc);
     const std::vector<uint8_t> buffer = ArrayUtils::CopyToVector(output->DrawThumbnail(dim.width, dim.height, desc.resource, {}, CompType::Typeless));
-    depth_out = rd::wrapper::make_wrapper<model::RdcWindowOutputData>(dim.width, dim.height, buffer);
+    depth_out = rd::wrapper::make_wrapper<model::RdcWindowOutputData>(name, dim.width, dim.height, buffer);
   }
 
   output->Shutdown();

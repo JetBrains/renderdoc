@@ -1,15 +1,12 @@
 #include "RenderDocMeshPreviewService.h"
 
+#include "RenderDocCaptureContext.h"
 #include "RenderDocModel/RdcVertexStageInOutputs.Generated.h"
 #include "RenderDocVertexResolver.h"
 #include "util/StringUtils.h"
 
 namespace jetbrains::renderdoc {
-RenderDocMeshPreviewService::RenderDocMeshPreviewService(IReplayController *controller) : controller(controller) {
-  for (const auto &buf: controller->GetBuffers()) {
-    buffers[buf.resourceId] = buf;
-  }
-}
+RenderDocMeshPreviewService::RenderDocMeshPreviewService(IReplayController *controller, const std::shared_ptr<RenderDocCaptureContext> &capture_context) : controller(controller), capture_context(capture_context) {}
 
 uint32_t RenderDocMeshPreviewService::calculate_index(const BufferData &data, uint32_t vertex_id, int32_t base_vertex, uint32_t prim_restart) {
   const auto it = data.buffer.data() + vertex_id * sizeof(uint32_t);
@@ -51,12 +48,12 @@ void RenderDocMeshPreviewService::calculate_input_rows(const PipeState &pipe_sta
     uint32_t available_bytes = i_buffer.byteSize;
 
     if (available_bytes == ~0U) {
-      if (const auto it = buffers.find(i_buffer.resourceId); it != buffers.end()) {
+      if (const auto it = capture_context->try_get_buffer(i_buffer.resourceId); it != nullptr) {
         uint64_t offset = i_buffer.byteOffset + action->indexOffset * i_buffer.byteStride;
-        if(offset > it->second.length)
+        if(offset > it->length)
           available_bytes = 0;
         else
-          available_bytes = it->second.length - offset;
+          available_bytes = it->length - offset;
       }
       else
         available_bytes = 0;
@@ -70,11 +67,11 @@ void RenderDocMeshPreviewService::calculate_input_rows(const PipeState &pipe_sta
       uint32_t available_bytes = buf.byteSize;
 
       if (available_bytes == ~0U) {
-        if (const auto it = buffers.find(buf.resourceId); it != buffers.end()) {
-          if(buf.byteOffset > it->second.length)
+        if (const auto it = capture_context->try_get_buffer(buf.resourceId); it != nullptr) {
+          if(buf.byteOffset > it->length)
             available_bytes = 0;
           else
-            available_bytes = it->second.length - buf.byteOffset;
+            available_bytes = it->length - buf.byteOffset;
         }
         else
           available_bytes = 0;

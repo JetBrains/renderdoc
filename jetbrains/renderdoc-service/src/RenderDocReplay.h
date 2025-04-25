@@ -8,6 +8,7 @@ enum class ShaderStage : uint8_t;
 struct IReplayController;
 
 namespace jetbrains::renderdoc {
+class RenderDocCaptureContext;
 class RenderDocMeshPreviewService;
 class RenderDocTexturePreviewService;
 class RenderDocLineBreakpointsMapper;
@@ -18,6 +19,7 @@ class RenderDocReplay : public model::RdcCapture {
   uint32_t get_effective_event_id(int64_t event_id) const;
 public:
   std::shared_ptr<IReplayController> controller;
+  std::shared_ptr<RenderDocCaptureContext> capture_context;
   std::shared_ptr<RenderDocLineBreakpointsMapper> mapper;
   std::shared_ptr<RenderDocTexturePreviewService> texture_previewer;
   std::shared_ptr<RenderDocMeshPreviewService> mesh_previewer;
