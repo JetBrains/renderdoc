@@ -8,6 +8,8 @@
 #include <unordered_map>
 
 namespace jetbrains::renderdoc {
+class RenderDocCaptureContext;
+
 namespace utils {
 template <typename T>
 inline T align_up(T x, T a)
@@ -48,7 +50,7 @@ class RenderDocMeshPreviewService {
   };
 
   IReplayController *controller;
-  std::map<ResourceId, BufferDescription> buffers;
+  std::shared_ptr<RenderDocCaptureContext> capture_context;
   std::unordered_map<uint32_t, rd::Wrapper<model::RdcVertexStageInOutputs>> stage_info_cache;
 
   static uint32_t calculate_index(const BufferData &data, uint32_t vertex_id, int32_t base_vertex, uint32_t prim_restart);
@@ -60,7 +62,7 @@ class RenderDocMeshPreviewService {
   void fetch_buffers(const ActionDescription *action, const PipeState &pipe_state, const MeshFormat &post, BufferConfig &in_config, BufferConfig &out_config) const;
   static std::vector<std::vector<std::vector<float>>> translate_buffers_to_floats(const BufferConfig &config, std::vector<rd::Wrapper<std::wstring>> &columns, std::vector<uint32_t> &indices, uint32_t inst);
 public:
-  explicit RenderDocMeshPreviewService(IReplayController *controller);
+  explicit RenderDocMeshPreviewService(IReplayController *controller, const std::shared_ptr<RenderDocCaptureContext> &capture_context);
   void calculate_vertices(const ActionDescription *action);
   rd::Wrapper<model::RdcVertexStageInOutputs> get_vertices(const ActionDescription *action);
   uint32_t get_vertex_index(const ActionDescription *action, uint32_t vertex_id);

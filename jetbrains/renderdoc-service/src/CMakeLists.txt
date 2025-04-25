@@ -27,6 +27,8 @@ add_library(RenderDocService STATIC
         RenderDocVertexResolver.h
         RenderDocMeshPreviewService.cpp
         RenderDocMeshPreviewService.h
+        RenderDocCaptureContext.h
+        RenderDocCaptureContext.cpp
 )
 
 if (ENABLE_PCH_HEADERS)

@@ -1032,38 +1032,54 @@ void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<Rende
 }
 
 void assert_texture_outputs(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
-  const auto &outputs_root = replay->get_textureRGBBuffer(lifetime, -1);
-
   {
+    const auto &outputs_root = replay->get_textureRGBBuffer(lifetime, -1);
     const auto &outputs_last = replay->get_textureRGBBuffer(lifetime, 1671);
     assert(outputs_root == outputs_last);
     assert(outputs_root->get_colorOutputs().size() == 1);
-    assert(!outputs_root->get_depthOutput());
+    assert(outputs_root->get_colorOutputs()[0]->get_name() == L"Swapchain Image 11155");
     assert(outputs_root->get_colorOutputs()[0]->get_width() == 2035);
     assert(outputs_root->get_colorOutputs()[0]->get_height() == 1142);
+
+    assert(!outputs_root->get_depthOutput());
   }
   {
     const auto &outputs_grouped = replay->get_textureRGBBuffer(lifetime, 97);
     const auto &outputs_leaf = replay->get_textureRGBBuffer(lifetime, 1638);
     assert(outputs_grouped == outputs_leaf);
     assert(outputs_grouped->get_colorOutputs().size() == 1);
+    assert(outputs_grouped->get_colorOutputs()[0]->get_name() == L"GUIViewHDRRT");
+    assert(outputs_grouped->get_colorOutputs()[0]->get_width() == 2035);
+    assert(outputs_grouped->get_colorOutputs()[0]->get_height() == 1142);
+
     assert(outputs_grouped->get_depthOutput());
-    assert(outputs_root->get_colorOutputs()[0]->get_width() == 2035);
-    assert(outputs_root->get_colorOutputs()[0]->get_height() == 1142);
+    assert(outputs_grouped->get_depthOutput()->get_name() == L"GUIViewHDRRT");
+    assert(outputs_grouped->get_depthOutput()->get_width() == 2035);
+    assert(outputs_grouped->get_depthOutput()->get_height() == 1142);
   }
   {
     const auto &outputs = replay->get_textureRGBBuffer(lifetime, 0);
     assert(outputs->get_colorOutputs().size() == 1);
-    assert(outputs->get_depthOutput());
+    assert(outputs->get_colorOutputs()[0]->get_name() == L"Swapchain Image 11155");
     assert(outputs->get_colorOutputs()[0]->get_width() == 2035);
     assert(outputs->get_colorOutputs()[0]->get_height() == 1142);
+
+    assert(outputs->get_depthOutput());
+    assert(outputs->get_depthOutput()->get_name() == L"RenderTexture-2D-2035x1142");
+    assert(outputs->get_depthOutput()->get_width() == 2035);
+    assert(outputs->get_depthOutput()->get_height() == 1142);
   }
   {
     const auto &outputs_grouped = replay->get_textureRGBBuffer(lifetime, 543);
     assert(outputs_grouped->get_colorOutputs().size() == 1);
-    assert(outputs_grouped->get_depthOutput());
+    assert(outputs_grouped->get_colorOutputs()[0]->get_name() == L"SceneView RT");
     assert(outputs_grouped->get_colorOutputs()[0]->get_width() == 2032);
     assert(outputs_grouped->get_colorOutputs()[0]->get_height() == 1070);
+
+    assert(outputs_grouped->get_depthOutput());
+    assert(outputs_grouped->get_depthOutput()->get_name() == L"SceneView RT");
+    assert(outputs_grouped->get_depthOutput()->get_width() == 2032);
+    assert(outputs_grouped->get_depthOutput()->get_height() == 1070);
   }
   {
     const auto &outputs_grouped = replay->get_textureRGBBuffer(lifetime, 696);
@@ -1071,25 +1087,41 @@ void assert_texture_outputs(const rd::Lifetime &lifetime, const rd::Wrapper<Rend
       const auto &outputs_grouped_1 = replay->get_textureRGBBuffer(lifetime, 739);
       assert(outputs_grouped == outputs_grouped_1);
       assert(outputs_grouped->get_colorOutputs().size() == 1);
-      assert(outputs_grouped->get_depthOutput());
+      assert(outputs_grouped->get_colorOutputs()[0]->get_name() == L"_CameraColorAttachmentA_2032x1070_R16G16B16A16_SFloat_Tex2D");
       assert(outputs_grouped->get_colorOutputs()[0]->get_width() == 2032);
       assert(outputs_grouped->get_colorOutputs()[0]->get_height() == 1070);
+
+      assert(outputs_grouped->get_depthOutput());
+      assert(outputs_grouped->get_depthOutput()->get_name() == L"_CameraDepthAttachment_2032x1070_Depth");
+      assert(outputs_grouped->get_depthOutput()->get_width() == 2032);
+      assert(outputs_grouped->get_depthOutput()->get_height() == 1070);
     }
     {
       const auto &outputs_leaf = replay->get_textureRGBBuffer(lifetime, 715);
       assert(outputs_leaf->get_colorOutputs().size() == 1);
-      assert(outputs_leaf->get_depthOutput());
+      assert(outputs_leaf->get_colorOutputs()[0]->get_name() == L"_CameraColorAttachmentA_2032x1070_R16G16B16A16_SFloat_Tex2D");
       assert(outputs_leaf->get_colorOutputs()[0]->get_width() == 2032);
       assert(outputs_leaf->get_colorOutputs()[0]->get_height() == 1070);
+
+      assert(outputs_leaf->get_depthOutput());
+      assert(outputs_leaf->get_depthOutput()->get_name() == L"_CameraDepthAttachment_2032x1070_Depth");
+      assert(outputs_leaf->get_depthOutput()->get_width() == 2032);
+      assert(outputs_leaf->get_depthOutput()->get_height() == 1070);
+
     }
     {
       const auto &outputs_grouped_1 = replay->get_textureRGBBuffer(lifetime, 697);
       assert(outputs_grouped_1 != outputs_grouped);
 
       assert(outputs_grouped_1->get_colorOutputs().size() == 1);
-      assert(outputs_grouped_1->get_depthOutput());
+      assert(outputs_grouped_1->get_colorOutputs()[0]->get_name() == L"_CameraColorAttachmentA_2032x1070_R16G16B16A16_SFloat_Tex2D");
       assert(outputs_grouped_1->get_colorOutputs()[0]->get_width() == 2032);
       assert(outputs_grouped_1->get_colorOutputs()[0]->get_height() == 1070);
+
+      assert(outputs_grouped_1->get_depthOutput());
+      assert(outputs_grouped_1->get_depthOutput()->get_name() == L"_CameraDepthAttachment_2032x1070_Depth");
+      assert(outputs_grouped_1->get_depthOutput()->get_width() == 2032);
+      assert(outputs_grouped_1->get_depthOutput()->get_height() == 1070);
 
       const auto &outputs_end_event = replay->get_textureRGBBuffer(lifetime, 738);
       assert(outputs_grouped_1 == outputs_end_event);
@@ -1098,9 +1130,14 @@ void assert_texture_outputs(const rd::Lifetime &lifetime, const rd::Wrapper<Rend
   {
     const auto &outputs_leaf = replay->get_textureRGBBuffer(lifetime, 1244);
     assert(outputs_leaf->get_colorOutputs().size() == 1);
-    assert(outputs_leaf->get_depthOutput());
+    assert(outputs_leaf->get_colorOutputs()[0]->get_name() == L"SceneView RT");
     assert(outputs_leaf->get_colorOutputs()[0]->get_width() == 2032);
     assert(outputs_leaf->get_colorOutputs()[0]->get_height() == 1070);
+
+    assert(outputs_leaf->get_depthOutput());
+    assert(outputs_leaf->get_depthOutput()->get_name() == L"SceneView RT");
+    assert(outputs_leaf->get_depthOutput()->get_width() == 2032);
+    assert(outputs_leaf->get_depthOutput()->get_height() == 1070);
   }
 }
 
