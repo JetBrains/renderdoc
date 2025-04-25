@@ -1,5 +1,6 @@
 #include "RenderDocReplay.h"
 
+#include "RenderDocCaptureContext.h"
 #include "RenderDocMeshPreviewService.h"
 #include "RenderDocTexturePreviewService.h"
 #include "util/ArrayUtils.h"
@@ -59,8 +60,9 @@ uint32_t RenderDocReplay::get_effective_event_id(int64_t event_id) const {
 }
 
 RenderDocReplay::RenderDocReplay(IReplayController *controller) : RdcCapture{replay::helpers::get_graphics_api(controller), replay::helpers::get_root_actions(controller)},
-controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), mapper(std::make_shared<RenderDocLineBreakpointsMapper>()),
-texture_previewer(std::make_shared<RenderDocTexturePreviewService>(controller)), mesh_previewer(std::make_shared<RenderDocMeshPreviewService>(controller)) {
+controller(controller, [](IReplayController* ptr) { ptr->Shutdown(); }), capture_context(std::make_shared<RenderDocCaptureContext>(controller)),
+mapper(std::make_shared<RenderDocLineBreakpointsMapper>()), texture_previewer(std::make_shared<RenderDocTexturePreviewService>(controller, capture_context)),
+mesh_previewer(std::make_shared<RenderDocMeshPreviewService>(controller, capture_context)) {
   calculate_effective_event_ids(nullptr);
 
   get_debugVertex().set([this](const rd::Lifetime& lifetime, const auto& req) {
@@ -158,19 +160,24 @@ rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_vertex(c
 }
 
 rd::Wrapper<RenderDocDrawCallDebugSession> RenderDocReplay::start_debug_pixel(const ActionDescription *action, DebugInput input) const {
-  if (!action)
+  if (!action) {
     return rd::Wrapper<RenderDocDrawCallDebugSession>(nullptr);
+  }
   controller->SetFrameEvent(action->eventId, true);
 
   const auto &pipeline = controller->GetPipelineState();
   const ShaderReflection *shader = pipeline.GetShaderReflection(ShaderStage::Pixel);
+  if (!shader || !shader->debugInfo.debuggable) {
+    return rd::Wrapper<RenderDocDrawCallDebugSession>(nullptr);
+  }
+
   const DebugPixelInputs inputs;
   ShaderDebugTrace *trace = controller->DebugPixel(input.pixel.x, input.pixel.y, inputs);
-  if (!trace || trace->stage != ShaderStage::Pixel)
+  if (!trace || trace->stage != ShaderStage::Pixel) {
     return rd::Wrapper<RenderDocDrawCallDebugSession>(nullptr);
+  }
   const auto &drawCallSession = rd::wrapper::make_wrapper<RenderDocDrawCallDebugSession>(action, controller, trace, &shader->debugInfo, shader);
-  if (drawCallSession)
-    mapper->register_sources_usages_in_draw_call(action->eventId, drawCallSession->get_sourceFiles());
+  mapper->register_sources_usages_in_draw_call(action->eventId, drawCallSession->get_sourceFiles());
   return drawCallSession;
 }
 

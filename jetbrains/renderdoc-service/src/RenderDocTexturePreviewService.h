@@ -12,6 +12,7 @@ namespace model {
 class RdcTextureOutputs;
 class RdcWindowOutputData;
 }
+class RenderDocCaptureContext;
 
 class RenderDocTexturePreviewService {
   struct Dimensions {
@@ -23,6 +24,7 @@ class RenderDocTexturePreviewService {
   };
 
   IReplayController *controller;
+  std::shared_ptr<RenderDocCaptureContext> capture_context;
   std::unordered_map<uint32_t, std::vector<std::pair<Descriptor, Dimensions>>> color_outputs_cache;
   std::unordered_map<uint32_t, std::pair<Descriptor, Dimensions>> depth_outputs_cache;
   std::unordered_map<uint32_t, Dimensions> max_dimensions;
@@ -31,11 +33,12 @@ class RenderDocTexturePreviewService {
 
   void calculate_dimensions(const ActionDescription *action, uint32_t event_id);
   void calculate_action_context(const ActionDescription *action, bool &copy, bool &clear, bool &compute) const;
+  std::wstring get_texture_name(const ActionDescription *action, const Descriptor &desc) const;
   rdcarray<Descriptor> get_output_targets(const ActionDescription *action) const;
   Descriptor get_depth_target(const ActionDescription *action) const;
 
 public:
-  explicit RenderDocTexturePreviewService(IReplayController *controller);
+  explicit RenderDocTexturePreviewService(IReplayController *controller, const std::shared_ptr<RenderDocCaptureContext> &capture_context);
   rd::Wrapper<model::RdcTextureOutputs> get_outputs(const ActionDescription *action, uint32_t event_id);
 };
 }

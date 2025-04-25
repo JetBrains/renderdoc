@@ -1051,89 +1051,133 @@ class RenderDocClientWindowsTest {
         private suspend fun assertTexturesOutputs(modelLifetime: Lifetime, capture: RdcCapture) {
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
 
-            val outputsRoot = withContext(rdDispatcher) {
-                capture.getTextureRGBBuffer.startSuspending(modelLifetime, -1)
-            }
-
             run {
+                val outputsRoot = withContext(rdDispatcher) {
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, -1)!!
+                }
+
                 val outputsLast = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1671)
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1671)!!
                 }
                 assertEquals(outputsRoot, outputsLast)
-                assertEquals(1, outputsRoot?.colorOutputs?.size)
-                assertNull(outputsRoot?.depthOutput)
-                assertEquals(2035, outputsRoot?.colorOutputs?.get(0)?.width)
-                assertEquals(1142, outputsRoot?.colorOutputs?.get(0)?.height)
+                assertEquals(1, outputsRoot.colorOutputs.size)
+                val colorOutput = outputsRoot.colorOutputs[0]
+                assertEquals("Swapchain Image 11155", colorOutput.name)
+                assertEquals(2035, colorOutput.width)
+                assertEquals(1142, colorOutput.height)
+
+                assertNull(outputsRoot.depthOutput)
             }
 
             run {
                 val outputsGrouped = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 97)
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 97)!!
                 }
                 val outputsLeaf = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1638)
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1638)!!
                 }
                 assertEquals(outputsGrouped, outputsLeaf)
-                assertEquals(1, outputsGrouped?.colorOutputs?.size)
-                assertNotNull(outputsGrouped?.depthOutput)
-                assertEquals(2035, outputsRoot?.colorOutputs?.get(0)?.width)
-                assertEquals(1142, outputsRoot?.colorOutputs?.get(0)?.height)
+                assertEquals(1, outputsGrouped.colorOutputs.size)
+                val colorOutput = outputsGrouped.colorOutputs[0]
+                assertEquals("GUIViewHDRRT", colorOutput.name)
+                assertEquals(2035, colorOutput.width)
+                assertEquals(1142, colorOutput.height)
+
+                assertNotNull(outputsGrouped.depthOutput)
+                val depthOutput = outputsGrouped.depthOutput!!
+                assertEquals("GUIViewHDRRT", depthOutput.name)
+                assertEquals(2035, depthOutput.width)
+                assertEquals(1142, depthOutput.height)
             }
 
             run {
                 val outputs = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 0)
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 0)!!
                 }
-                assertEquals(1, outputs?.colorOutputs?.size)
-                assertNotNull(outputs?.depthOutput)
-                assertEquals(2035, outputs?.colorOutputs?.get(0)?.width)
-                assertEquals(1142, outputs?.colorOutputs?.get(0)?.height)
+                assertEquals(1, outputs.colorOutputs.size)
+                val colorOutput = outputs.colorOutputs[0]
+                assertEquals("Swapchain Image 11155", colorOutput.name)
+                assertEquals(2035, colorOutput.width)
+                assertEquals(1142, colorOutput.height)
+
+                assertNotNull(outputs.depthOutput)
+                val depthOutput = outputs.depthOutput!!
+                assertEquals("RenderTexture-2D-2035x1142", depthOutput.name)
+                assertEquals(2035, depthOutput.width)
+                assertEquals(1142, depthOutput.height)
             }
 
             run {
                 val outputsGrouped = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 543)
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 543)!!
                 }
-                assertEquals(1, outputsGrouped?.colorOutputs?.size)
-                assertNotNull(outputsGrouped?.depthOutput)
-                assertEquals(2032, outputsGrouped?.colorOutputs?.get(0)?.width)
-                assertEquals(1070, outputsGrouped?.colorOutputs?.get(0)?.height)
+                assertEquals(1, outputsGrouped.colorOutputs.size)
+                val colorOutput = outputsGrouped.colorOutputs[0]
+                assertEquals("SceneView RT", colorOutput.name)
+                assertEquals(2032, colorOutput.width)
+                assertEquals(1070, colorOutput.height)
+
+                assertNotNull(outputsGrouped.depthOutput)
+                val depthOutput = outputsGrouped.depthOutput!!
+                assertEquals("SceneView RT", depthOutput.name)
+                assertEquals(2032, depthOutput.width)
+                assertEquals(1070, depthOutput.height)
             }
 
             val outputsGrouped = withContext(rdDispatcher) {
-                capture.getTextureRGBBuffer.startSuspending(modelLifetime, 696)
+                capture.getTextureRGBBuffer.startSuspending(modelLifetime, 696)!!
             }
 
             run {
                 val outputsGrouped1 = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 739)
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 739)!!
                 }
                 assertEquals(outputsGrouped, outputsGrouped1)
-                assertEquals(1, outputsGrouped?.colorOutputs?.size)
-                assertNotNull(outputsGrouped?.depthOutput)
-                assertEquals(2032, outputsGrouped?.colorOutputs?.get(0)?.width)
-                assertEquals(1070, outputsGrouped?.colorOutputs?.get(0)?.height)
+                val colorOutput = outputsGrouped1.colorOutputs[0]
+                assertEquals("_CameraColorAttachmentA_2032x1070_R16G16B16A16_SFloat_Tex2D", colorOutput.name)
+                assertEquals(2032, colorOutput.width)
+                assertEquals(1070, colorOutput.height)
+
+                assertNotNull(outputsGrouped1.depthOutput)
+                val depthOutput = outputsGrouped1.depthOutput!!
+                assertEquals("_CameraDepthAttachment_2032x1070_Depth", depthOutput.name)
+                assertEquals(2032, depthOutput.width)
+                assertEquals(1070, depthOutput.height)
             }
 
             run {
                 val outputsLeaf = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 715)
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 715)!!
                 }
-                assertEquals(1, outputsLeaf?.colorOutputs?.size)
-                assertNotNull(outputsLeaf?.depthOutput)
-                assertEquals(2032, outputsLeaf?.colorOutputs?.get(0)?.width)
-                assertEquals(1070, outputsLeaf?.colorOutputs?.get(0)?.height)
+                assertEquals(1, outputsLeaf.colorOutputs.size)
+                val colorOutput = outputsLeaf.colorOutputs[0]
+                assertEquals("_CameraColorAttachmentA_2032x1070_R16G16B16A16_SFloat_Tex2D", colorOutput.name)
+                assertEquals(2032, colorOutput.width)
+                assertEquals(1070, colorOutput.height)
+
+                assertNotNull(outputsLeaf.depthOutput)
+                val depthOutput = outputsLeaf.depthOutput!!
+                assertEquals("_CameraDepthAttachment_2032x1070_Depth", depthOutput.name)
+                assertEquals(2032, depthOutput.width)
+                assertEquals(1070, depthOutput.height)
             }
 
             run {
                 val outputsGrouped1 = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 697)
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 697)!!
                 }
                 assertNotEquals(outputsGrouped1, outputsGrouped)
-                assertEquals(1, outputsGrouped1?.colorOutputs?.size)
-                assertNotNull(outputsGrouped1?.depthOutput)
-                assertEquals(2032, outputsGrouped1?.colorOutputs?.get(0)?.width)
-                assertEquals(1070, outputsGrouped1?.colorOutputs?.get(0)?.height)
+                assertEquals(1, outputsGrouped1.colorOutputs.size)
+                val colorOutput = outputsGrouped1.colorOutputs[0]
+                assertEquals("_CameraColorAttachmentA_2032x1070_R16G16B16A16_SFloat_Tex2D", colorOutput.name)
+                assertEquals(2032, colorOutput.width)
+                assertEquals(1070, colorOutput.height)
+
+                assertNotNull(outputsGrouped1.depthOutput)
+                val depthOutput = outputsGrouped1.depthOutput!!
+                assertEquals("_CameraDepthAttachment_2032x1070_Depth", depthOutput.name)
+                assertEquals(2032, depthOutput.width)
+                assertEquals(1070, depthOutput.height)
 
                 val outputsEndEvent = withContext(rdDispatcher) {
                     capture.getTextureRGBBuffer.startSuspending(modelLifetime, 738)
@@ -1143,12 +1187,19 @@ class RenderDocClientWindowsTest {
 
             run {
                 val outputsLeaf = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1244)
+                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1244)!!
                 }
-                assertEquals(1, outputsLeaf?.colorOutputs?.size)
-                assertNotNull(outputsLeaf?.depthOutput)
-                assertEquals(2032, outputsLeaf?.colorOutputs?.get(0)?.width)
-                assertEquals(1070, outputsLeaf?.colorOutputs?.get(0)?.height)
+                assertEquals(1, outputsLeaf.colorOutputs.size)
+                val colorOutput = outputsLeaf.colorOutputs[0]
+                assertEquals("SceneView RT", colorOutput.name)
+                assertEquals(2032, colorOutput.width)
+                assertEquals(1070, colorOutput.height)
+
+                assertNotNull(outputsLeaf.depthOutput)
+                val depthOutput = outputsLeaf.depthOutput!!
+                assertEquals("SceneView RT", depthOutput.name)
+                assertEquals(2032, depthOutput.width)
+                assertEquals(1070, depthOutput.height)
             }
         }
 

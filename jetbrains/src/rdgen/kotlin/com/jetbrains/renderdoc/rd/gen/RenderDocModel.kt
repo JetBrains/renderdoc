@@ -340,6 +340,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
         }
 
         val rdcWindowOutputData = structdef("rdcWindowOutputData") {
+            field("name", string)
             field("width", int)
             field("height", int)
             field("buffer", array(byte))
