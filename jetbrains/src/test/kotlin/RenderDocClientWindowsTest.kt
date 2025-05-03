@@ -1053,13 +1053,16 @@ class RenderDocClientWindowsTest {
 
             run {
                 val outputsRoot = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, -1)!!
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, -1)!!
                 }
 
                 val outputsLast = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1671)!!
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, 1671)!!
                 }
                 assertEquals(outputsRoot, outputsLast)
+
+                assertTrue(outputsRoot.inputs.isEmpty())
+
                 assertEquals(1, outputsRoot.colorOutputs.size)
                 val colorOutput = outputsRoot.colorOutputs[0]
                 assertEquals("Swapchain Image 11155", colorOutput.name)
@@ -1071,12 +1074,15 @@ class RenderDocClientWindowsTest {
 
             run {
                 val outputsGrouped = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 97)!!
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, 97)!!
                 }
                 val outputsLeaf = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1638)!!
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, 1638)!!
                 }
                 assertEquals(outputsGrouped, outputsLeaf)
+
+                assertEquals(11, outputsGrouped.inputs.size)
+
                 assertEquals(1, outputsGrouped.colorOutputs.size)
                 val colorOutput = outputsGrouped.colorOutputs[0]
                 assertEquals("GUIViewHDRRT", colorOutput.name)
@@ -1092,8 +1098,10 @@ class RenderDocClientWindowsTest {
 
             run {
                 val outputs = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 0)!!
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, 0)!!
                 }
+                assertEquals(1, outputs.inputs.size)
+
                 assertEquals(1, outputs.colorOutputs.size)
                 val colorOutput = outputs.colorOutputs[0]
                 assertEquals("Swapchain Image 11155", colorOutput.name)
@@ -1109,8 +1117,10 @@ class RenderDocClientWindowsTest {
 
             run {
                 val outputsGrouped = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 543)!!
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, 543)!!
                 }
+                assertTrue(outputsGrouped.inputs.isEmpty())
+
                 assertEquals(1, outputsGrouped.colorOutputs.size)
                 val colorOutput = outputsGrouped.colorOutputs[0]
                 assertEquals("SceneView RT", colorOutput.name)
@@ -1125,14 +1135,17 @@ class RenderDocClientWindowsTest {
             }
 
             val outputsGrouped = withContext(rdDispatcher) {
-                capture.getTextureRGBBuffer.startSuspending(modelLifetime, 696)!!
+                capture.getPixelStageInOutputs.startSuspending(modelLifetime, 696)!!
             }
 
             run {
                 val outputsGrouped1 = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 739)!!
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, 739)!!
                 }
                 assertEquals(outputsGrouped, outputsGrouped1)
+
+                assertTrue(outputsGrouped1.inputs.isEmpty())
+
                 val colorOutput = outputsGrouped1.colorOutputs[0]
                 assertEquals("_CameraColorAttachmentA_2032x1070_R16G16B16A16_SFloat_Tex2D", colorOutput.name)
                 assertEquals(2032, colorOutput.width)
@@ -1147,8 +1160,11 @@ class RenderDocClientWindowsTest {
 
             run {
                 val outputsLeaf = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 715)!!
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, 715)!!
                 }
+
+                assertTrue(outputsLeaf.inputs.isEmpty())
+
                 assertEquals(1, outputsLeaf.colorOutputs.size)
                 val colorOutput = outputsLeaf.colorOutputs[0]
                 assertEquals("_CameraColorAttachmentA_2032x1070_R16G16B16A16_SFloat_Tex2D", colorOutput.name)
@@ -1164,9 +1180,12 @@ class RenderDocClientWindowsTest {
 
             run {
                 val outputsGrouped1 = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 697)!!
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, 697)!!
                 }
                 assertNotEquals(outputsGrouped1, outputsGrouped)
+
+                assertTrue(outputsGrouped1.inputs.isEmpty())
+
                 assertEquals(1, outputsGrouped1.colorOutputs.size)
                 val colorOutput = outputsGrouped1.colorOutputs[0]
                 assertEquals("_CameraColorAttachmentA_2032x1070_R16G16B16A16_SFloat_Tex2D", colorOutput.name)
@@ -1180,15 +1199,17 @@ class RenderDocClientWindowsTest {
                 assertEquals(1070, depthOutput.height)
 
                 val outputsEndEvent = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 738)
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, 738)
                 }
                 assertEquals(outputsGrouped1, outputsEndEvent)
             }
 
             run {
                 val outputsLeaf = withContext(rdDispatcher) {
-                    capture.getTextureRGBBuffer.startSuspending(modelLifetime, 1244)!!
+                    capture.getPixelStageInOutputs.startSuspending(modelLifetime, 1244)!!
                 }
+                assertEquals(1, outputsLeaf.inputs.size)
+
                 assertEquals(1, outputsLeaf.colorOutputs.size)
                 val colorOutput = outputsLeaf.colorOutputs[0]
                 assertEquals("SceneView RT", colorOutput.name)

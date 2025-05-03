@@ -95,18 +95,20 @@ void assert_vertices_table(const rd::Lifetime &lifetime, const rd::Wrapper<Rende
 }
 
 void assert_texture_outputs(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
-  const auto &outputs_root = replay->get_textureRGBBuffer(lifetime, -1);
+  const auto &outputs_root = replay->get_pixel_inoutputs(lifetime, -1);
 
   {
-    const auto &outputs_last = replay->get_textureRGBBuffer(lifetime, 16);
+    const auto &outputs_last = replay->get_pixel_inoutputs(lifetime, 16);
     assert(outputs_root == outputs_last);
+    assert(outputs_root->get_inputs().empty());
     assert(outputs_root->get_colorOutputs().size() == 1);
     assert(!outputs_root->get_depthOutput());
     assert(outputs_root->get_colorOutputs()[0]->get_width() == 1280);
     assert(outputs_root->get_colorOutputs()[0]->get_height() == 720);
   }
   {
-    const auto &outputs_leaf = replay->get_textureRGBBuffer(lifetime, 13);
+    const auto &outputs_leaf = replay->get_pixel_inoutputs(lifetime, 13);
+    assert(outputs_leaf->get_inputs().empty());
     assert(outputs_leaf->get_colorOutputs().size() == 1);
     assert(outputs_leaf->get_depthOutput());
     assert(outputs_leaf->get_colorOutputs()[0]->get_width() == 1280);
