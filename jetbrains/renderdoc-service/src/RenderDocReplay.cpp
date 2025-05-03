@@ -77,19 +77,19 @@ mesh_previewer(std::make_shared<RenderDocMeshPreviewService>(controller, capture
   get_tryDebugPixel().set([this](const rd::Lifetime& lifetime, const auto& req) {
     return try_debug_pixel(lifetime, req);
   });
-  get_getTextureRGBBuffer().set([this](const rd::Lifetime& lifetime, const auto& req) {
-    return get_textureRGBBuffer(lifetime, req);
+  get_getPixelStageInOutputs().set([this](const rd::Lifetime& lifetime, const auto& req) {
+    return get_pixel_inoutputs(lifetime, req);
   });
   get_getVertexStageInOutputs().set([this](const rd::Lifetime& lifetime, const auto& req) {
     return get_vertices_inoutputs(lifetime, req);
   });
 }
 
-[[nodiscard]] rd::Wrapper<model::RdcTextureOutputs> RenderDocReplay::get_textureRGBBuffer(const rd::Lifetime &session_lifetime, int64_t event_id) const {
+[[nodiscard]] rd::Wrapper<model::RdcPixelStageInOutputs> RenderDocReplay::get_pixel_inoutputs(const rd::Lifetime &session_lifetime, int64_t event_id) const {
   const auto eid = get_effective_event_id(event_id);
   const auto event = helpers::get_action(controller->GetRootActions(), eid);
   controller->SetFrameEvent(eid, true);
-  return texture_previewer->get_outputs(event, eid);
+  return texture_previewer->get_inoutputs(event, eid);
 }
 
 rd::Wrapper<model::RdcVertexStageInOutputs> RenderDocReplay::get_vertices_inoutputs(const rd::Lifetime &session_lifetime, int64_t event_id) const {

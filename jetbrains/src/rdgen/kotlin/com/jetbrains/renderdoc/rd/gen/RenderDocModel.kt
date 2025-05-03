@@ -346,11 +346,6 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("buffer", array(byte))
         }
 
-        val rdcTextureOutputs = structdef("rdcTextureOutputs") {
-            field("colorOutputs", array(rdcWindowOutputData))
-            field("depthOutput", rdcWindowOutputData.nullable)
-        }
-
         val rdcDebugPixelInput = structdef("rdcDebugPixelInput") {
             field("eventId", uint)
             field("x", uint)
@@ -362,6 +357,12 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("eventId", uint)
             field("vertex", uint)
             field("breakpoints", immutableList(rdcSourceBreakpoint))
+        }
+
+        val rdcPixelStageInOutputs = structdef("rdcPixelStageInOutputs") {
+            field("inputs", array(rdcWindowOutputData))
+            field("colorOutputs", array(rdcWindowOutputData))
+            field("depthOutput", rdcWindowOutputData.nullable)
         }
 
         val rdcVertexStageInOutputs = structdef("rdcVertexStageInOutputs") {
@@ -377,7 +378,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("api", rdcGraphicsApi)
             field("rootActions", array(rdcAction))
 
-            callback("getTextureRGBBuffer", int64, rdcTextureOutputs.nullable)
+            callback("getPixelStageInOutputs", int64, rdcPixelStageInOutputs.nullable)
             callback("getVertexStageInOutputs", int64, rdcVertexStageInOutputs.nullable)
 
             callback("debugVertex", rdcDebugVertexInput, rdcDebugSession)

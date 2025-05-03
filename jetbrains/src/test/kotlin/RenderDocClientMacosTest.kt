@@ -142,19 +142,22 @@ class RenderDocClientMacosTest {
         private suspend fun assertTextureOutputs(modelLifetime: Lifetime, capture: RdcCapture) {
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             val textureRoot = withContext(rdDispatcher) {
-                capture.getTextureRGBBuffer.startSuspending(modelLifetime, -1)
+                capture.getPixelStageInOutputs.startSuspending(modelLifetime, -1)
             }
             withContext(rdDispatcher) {
-                val textureLast = capture.getTextureRGBBuffer.startSuspending(modelLifetime, 16)
+                val textureLast = capture.getPixelStageInOutputs.startSuspending(modelLifetime, 16)!!
                 assertEquals(textureRoot, textureLast)
-                assertEquals(1, textureLast!!.colorOutputs.size)
+
+                assertTrue(textureLast.inputs.isEmpty())
+                assertEquals(1, textureLast.colorOutputs.size)
                 assertNull(textureLast.depthOutput)
                 assertEquals(1280, textureLast.colorOutputs[0].width)
                 assertEquals(720, textureLast.colorOutputs[0].height)
             }
             withContext(rdDispatcher) {
-                val textureLeaf = capture.getTextureRGBBuffer.startSuspending(modelLifetime, 13)
-                assertEquals(1, textureLeaf!!.colorOutputs.size)
+                val textureLeaf = capture.getPixelStageInOutputs.startSuspending(modelLifetime, 13)!!
+                assertTrue(textureLeaf.inputs.isEmpty())
+                assertEquals(1, textureLeaf.colorOutputs.size)
                 assertNotNull(textureLeaf.depthOutput)
                 assertEquals(1280, textureLeaf.colorOutputs[0].width)
                 assertEquals(720, textureLeaf.colorOutputs[0].height)
