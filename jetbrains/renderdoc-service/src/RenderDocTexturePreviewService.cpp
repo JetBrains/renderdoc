@@ -36,9 +36,10 @@ std::vector<std::pair<Descriptor, RenderDocTexturePreviewService::Dimensions>> R
     const auto texture = std::find_if(textures.begin(), textures.end(), [id = target.resource](const TextureDescription &t) { return t.resourceId == id; });
     if (texture == textures.end() || !(texture->creationFlags & category))
       continue;
-    width = std::max(static_cast<int32_t>(std::min<uint32_t>(texture->width, INT32_MAX)), width);
-    height = std::max(static_cast<int32_t>(std::min<uint32_t>(texture->height, INT32_MAX)), height);
-    descriptors.emplace_back(target, Dimensions(width, height));
+    const Dimensions dims(static_cast<int32_t>(texture->width), static_cast<int32_t>(texture->height));
+    width = std::max(dims.width, width);
+    height = std::max(dims.height, height);
+    descriptors.emplace_back(target, dims);
   }
   return descriptors;
 }
