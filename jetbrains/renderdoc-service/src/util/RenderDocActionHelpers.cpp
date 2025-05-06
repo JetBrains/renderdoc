@@ -38,7 +38,8 @@ bool try_get_used_source_file_paths(const PipeState &pipeline, std::set<std::wst
           entrypoints.insert(prev_path);
           others.erase(prev_path);
         }
-        others.insert(matches[2]);
+        if (matches[2].length() != 0)
+          others.insert(matches[2]);
         prev_line = j;
         prev_path = matches[2];
       } else if (j == 0) {
