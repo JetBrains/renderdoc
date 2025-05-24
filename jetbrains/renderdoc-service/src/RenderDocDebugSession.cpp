@@ -24,6 +24,7 @@ public:
 
 RenderDocDebugSession::RenderDocDebugSession(const rd::Lifetime& session_lifetime, const RenderDocReplay *replay, rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session, const ShaderStage &stage, DebugInput input, bool is_draw_call_debug)
 :  input(input), data(std::make_shared<RenderDocDebugSessionData>(is_draw_call_debug, replay, std::move(draw_call_session), stage)) {
+  get_stepOut().advise(session_lifetime, [this] { step_out(); });
   get_stepInto().advise(session_lifetime, [this] { step_into(); });
   get_stepOver().advise(session_lifetime,[this] { step_over(); });
   get_addLineBreakpoint().advise(session_lifetime, [this](const auto& req) { add_breakpoint(req.get_sourceFileIndex(), req.get_line()); });
@@ -36,6 +37,23 @@ std::vector<rd::Wrapper<model::RdcSourceFile>> RenderDocDebugSession::get_source
   if (!data->draw_call_session)
     return {};
   return data->draw_call_session->get_sourceFiles();
+}
+
+void RenderDocDebugSession::step_out() const {
+  const auto &previous_state = get_sessionState().has_value() ? get_sessionState().get() : rd::Wrapper<model::RdcSessionState>(nullptr);
+  const int64_t previous_id = previous_state ? previous_state->get_currentStack().get_drawCallId() : -1;
+
+  // if stepping out from a tree, end debug
+  if (previous_state != nullptr && previous_state->get_currentStack().get_stepIndex() == -1) {
+    update_session_state(rd::Wrapper<model::RdcDebugStack>(nullptr), previous_id);
+    return;
+  }
+
+  auto stack = data->draw_call_session ? data->draw_call_session->step_out() : rd::Wrapper<model::RdcDebugStack>(nullptr);
+  if (!stack && !data->is_draw_call_debug)
+    stack = rd::wrapper::make_wrapper<model::RdcDebugStack>(data->current_action->eventId, -1, -1, 0, 0, 0, 0);
+
+  update_session_state(stack, previous_id);
 }
 
 void RenderDocDebugSession::step_into() const {

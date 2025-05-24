@@ -316,6 +316,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
         val rdcDebugSession = classdef("rdcDebugSession") {
             property("sessionState", rdcSessionState.nullable)
 
+            sink("stepOut", void)
             sink("stepInto", void)
             sink("stepOver", void)
             sink("resume", void)

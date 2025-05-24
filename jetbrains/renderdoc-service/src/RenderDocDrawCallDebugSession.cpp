@@ -182,6 +182,45 @@ bool RenderDocDrawCallDebugSession::can_perform_step() const {
   return !data->finished;
 }
 
+rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_out() const {
+  if (!can_perform_step())
+    return rd::Wrapper<model::RdcDebugStack>(nullptr);
+
+  const auto old_stack = data->current_state->callstack;
+
+  do {
+    if (!can_perform_step())
+      return rd::Wrapper<model::RdcDebugStack>(nullptr);
+
+    if (!data->do_step())
+      return rd::Wrapper<model::RdcDebugStack>(nullptr);
+
+    if (!data->debug_info->sourceDebugInformation)
+      break;
+
+    const auto new_stack = data->current_state->callstack;
+
+    if (new_stack.size() < old_stack.size())
+      break;
+
+    if (new_stack == old_stack)
+      continue;
+
+    bool diff = false;
+    const std::size_t size = std::min(old_stack.size(), new_stack.size());
+    for (size_t i = 0; i < size; ++i) {
+      if (old_stack[i] != new_stack[i]) {
+        diff = true;
+        break;
+      }
+    }
+
+    if (diff)
+      break;
+  } while (true);
+
+  return make_debug_stack(data->current_state->stepIndex, data->current_instruction.lineInfo);
+}
 
 rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_into() const {
   if (!data->do_step())
