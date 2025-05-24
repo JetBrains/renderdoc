@@ -41,6 +41,7 @@ public:
 
   RenderDocDrawCallDebugSession(const ActionDescription *action, const std::shared_ptr<IReplayController> &controller, ShaderDebugTrace *trace, const ShaderDebugInfo *debug_info, const ShaderReflection *reflection);
   [[nodiscard]] bool can_perform_step() const;
+  rd::Wrapper<model::RdcDebugStack> step_out() const;
   rd::Wrapper<model::RdcDebugStack> step_into() const;
   rd::Wrapper<model::RdcDebugStack> step_over() const;
   rd::Wrapper<model::RdcDebugStack> resume() const;

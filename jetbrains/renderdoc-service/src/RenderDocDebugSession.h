@@ -34,6 +34,7 @@ class RenderDocDebugSession : public model::RdcDebugSession  {
 public:
   RenderDocDebugSession(const rd::Lifetime& session_lifetime, const RenderDocReplay *replay, rd::Wrapper<RenderDocDrawCallDebugSession> draw_call_session, const ShaderStage &stage, DebugInput input, bool is_draw_call_debug);
   std::vector<rd::Wrapper<model::RdcSourceFile>> get_sourceFiles() const;
+  void step_out() const;
   void step_into() const;
   void step_over() const;
   void resume() const;

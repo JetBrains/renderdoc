@@ -146,12 +146,118 @@ void assert_debug_vertex_step_by_step(const rd::Lifetime &lifetime, const rd::Wr
   }
 }
 
+void assert_debug_vertex_step_out(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
+  // disassembly
+  {
+    const auto session_lifetime = lifetime.create_nested();
+    const auto debug_session = replay->debug_vertex(session_lifetime, model::RdcDebugVertexInput(784, 0, {}));
+
+    const LineTracker line_tracker(session_lifetime, debug_session);
+
+    std::vector<int> expected_lines(125);
+
+    expected_lines[0] = 15;
+    for (uint8_t i = 1; i < 107; ++i) {
+      debug_session->step_out();
+      expected_lines[i] = i + 15;
+    }
+    for (uint8_t i = 0 ; i < 17; ++i) {
+      debug_session->step_out();
+      expected_lines[i + 107] = i + 163;
+    }
+
+    debug_session->step_out();
+    expected_lines.back() = -1;
+
+    assert(line_tracker.lines == expected_lines);
+  }
+
+  // ShaderLab source file
+  {
+    const auto session_lifetime = lifetime.create_nested();
+    const auto debug_session = replay->debug_vertex(session_lifetime, model::RdcDebugVertexInput(732, 30, {}));
+
+    const FrameTracker frame_tracker(session_lifetime, debug_session);
+
+    debug_session->step_into();
+    debug_session->step_into();
+    debug_session->step_out();
+    debug_session->step_out();
+    debug_session->step_out();
+
+    assert(frame_tracker.frames == std::vector({
+      {model::RdcDebugStack(732, 0, 0, 918, 918, 11, 45)},
+      {model::RdcDebugStack(732, 2, 0, 226, 226, 8, 41)},
+      {model::RdcDebugStack(732, 4, 0, 221, 221, 31, 80)},
+      {model::RdcDebugStack(732, 18, 0, 226, 226, 1, 43)},
+      {model::RdcDebugStack(732, 19, 0, 918, 918, 1, 45)},
+      rd::Wrapper<model::RdcDebugStack>(nullptr)}));
+    assert(frame_tracker.draw_call_id_changes == std::vector({
+      std::make_pair<std::size_t, int64_t>(0, 732),
+      std::make_pair<std::size_t, int64_t>(5, -1)
+    }));
+  }
+
+  // ShaderLab source file another scenario
+  {
+    const auto session_lifetime = lifetime.create_nested();
+    const auto debug_session = replay->debug_vertex(session_lifetime, model::RdcDebugVertexInput(732, 30, {}));
+
+    const FrameTracker frame_tracker(session_lifetime, debug_session);
+
+    debug_session->step_over();
+    debug_session->step_out();
+
+    assert(frame_tracker.frames == std::vector({
+      {model::RdcDebugStack(732, 0, 0, 918, 918, 11, 45)},
+      {model::RdcDebugStack(732, 19, 0, 918, 918, 1, 45)},
+      rd::Wrapper<model::RdcDebugStack>(nullptr)}));
+    assert(frame_tracker.draw_call_id_changes == std::vector({
+      std::make_pair<std::size_t, int64_t>(0, 732),
+      std::make_pair<std::size_t, int64_t>(2, -1)
+    }));
+  }
+}
+
 void assert_debug_vertex_with_breakpoints(const rd::Lifetime &lifetime, const rd::Wrapper<RenderDocReplay> &replay) {
 
   // ShaderLab source file
   {
     const auto session_lifetime = lifetime.create_nested();
     const auto debug_session = replay->debug_vertex(session_lifetime, model::RdcDebugVertexInput(749, 0, {}));
+
+    const FrameTracker frame_tracker(lifetime, debug_session);
+
+    debug_session->add_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Cube Shader.shader"), 57));
+    debug_session->add_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Cube Shader.shader"), 62));
+    debug_session->resume();
+    debug_session->resume();
+    debug_session->add_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/mult.hlsl"), 7));
+    debug_session->step_over();
+
+    debug_session->add_source_breakpoint(model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/Cube Shader.shader"), 64));
+    debug_session->resume();
+    debug_session->resume();
+    debug_session->resume();
+
+    assert(frame_tracker.frames == std::vector({
+      {model::RdcDebugStack(749, 0, 0, 926, 926, 14, 48)},
+      {model::RdcDebugStack(749, 20, 0, 930, 934, 5, 19)},
+      {model::RdcDebugStack(749, 21, 0, 934, 934, 3, 19)},
+      {model::RdcDebugStack(749, 24, 0, 904, 904, 8, 12)},
+      {model::RdcDebugStack(749, 26, 0, 930, 934, 5, 19)},
+      {model::RdcDebugStack(749, 32, 0, 936, 936, 1, 10)},
+      rd::Wrapper<model::RdcDebugStack>(nullptr)}));
+    assert(frame_tracker.draw_call_id_changes == std::vector({
+      std::make_pair<std::size_t, int64_t>(0, 749),
+      std::make_pair<std::size_t, int64_t>(6, -1)
+    }));
+  }
+
+  // ShaderLab source file stepping out
+  {
+    const auto session_lifetime = lifetime.create_nested();
+    const auto debug_session = replay->debug_vertex(session_lifetime, model::RdcDebugVertexInput(749, 35, {}));
 
     const FrameTracker frame_tracker(lifetime, debug_session);
 
@@ -1192,6 +1298,7 @@ int main() {
     };
 
     assert_debug_vertex_step_by_step(lifetime, replay);
+    assert_debug_vertex_step_out(lifetime, replay);
     assert_debug_vertex_with_breakpoints(lifetime, replay);
     assert_try_debug_vertex_step_over(lifetime, replay, 35,
       {{model::RdcSourceBreakpoint(rd::wrapper::make_wrapper<std::wstring>(L"Assets/ShaderForSphere.shader"), 20)}}, { 811 });
