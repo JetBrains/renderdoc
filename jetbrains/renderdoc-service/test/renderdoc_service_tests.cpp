@@ -3,10 +3,11 @@
 #include "lifetime/LifetimeDefinition.h"
 #include "RenderDocServiceApi.h"
 
+jetbrains::renderdoc::RenderDocService AbstractTest::service = jetbrains::renderdoc::RenderDocService();
+
 void AbstractTest::run() {
   const rd::LifetimeDefinition test_lifetime_def;
   const auto lifetime = test_lifetime_def.lifetime;
-  jetbrains::renderdoc::RenderDocService service;
   try {
     const auto file = service.open_capture_file(capture_name);
     const auto replay = file->open_capture();

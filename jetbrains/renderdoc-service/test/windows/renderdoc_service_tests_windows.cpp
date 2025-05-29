@@ -2,4 +2,6 @@
 
 int main() {
   Test1().run();
+  Test2().run();
+  return 0;
 }
