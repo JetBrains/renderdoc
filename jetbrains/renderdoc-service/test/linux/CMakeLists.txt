@@ -1,0 +1,1 @@
+set(test_sources renderdoc_service_tests_linux.cpp PARENT_SCOPE)

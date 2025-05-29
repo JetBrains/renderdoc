@@ -1,7 +1,7 @@
 #include <cassert>
 
+#include "../renderdoc_service_test_utils.h"
 #include "RenderDocServiceApi.h"
-#include "renderdoc_service_test_utils.h"
 
 #include <numeric>
 #include <set>

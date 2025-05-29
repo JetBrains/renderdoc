@@ -1,0 +1,1 @@
+set(test_sources renderdoc_service_tests_macos.cpp PARENT_SCOPE)
