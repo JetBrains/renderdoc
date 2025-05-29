@@ -15,6 +15,8 @@ add_executable(RenderDocServiceTests
         ${test_sources}
         renderdoc_service_test_utils.cpp
         renderdoc_service_test_utils.h
+        renderdoc_service_tests.h
+        renderdoc_service_tests.cpp
 )
 
 file(COPY ../../src/test/resources/samples/ DESTINATION ${CMAKE_BINARY_DIR}/bin/samples)

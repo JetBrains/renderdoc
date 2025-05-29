@@ -7,22 +7,32 @@ import com.jetbrains.rd.util.threading.coroutines.adviseSuspend
 import com.jetbrains.rd.util.threading.coroutines.asCoroutineDispatcher
 import com.jetbrains.rd.util.threading.coroutines.createTerminatedAfter
 import com.jetbrains.renderdoc.rdClient.RenderDocClient
-import com.jetbrains.renderdoc.rdClient.model.*
-import kotlinx.coroutines.*
+import com.jetbrains.renderdoc.rdClient.model.RdcAction
+import com.jetbrains.renderdoc.rdClient.model.RdcCapture
+import com.jetbrains.renderdoc.rdClient.model.RdcCaptureFile
+import com.jetbrains.renderdoc.rdClient.model.RdcDebugPixelInput
+import com.jetbrains.renderdoc.rdClient.model.RdcDebugSession
+import com.jetbrains.renderdoc.rdClient.model.RdcDebugStack
+import com.jetbrains.renderdoc.rdClient.model.RdcDebugVertexInput
+import com.jetbrains.renderdoc.rdClient.model.RdcSourceFilesInAction
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.fail
 import java.time.Duration
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.iterator
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.io.path.pathString
 import kotlin.io.path.toPath
 
-
-class RenderDocClientTest {
-
+abstract class RenderDocAbstractClientTest {
     companion object {
-
         class FrameSessionTracker {
             val frames = mutableListOf<RdcDebugStack>()
             val drawCallChanges = mutableMapOf<Int, UInt>()
@@ -110,9 +120,10 @@ class RenderDocClientTest {
         }
     }
 
-    @Test
-    fun testRenderDocClient() {
-        val sessionId = 12345L
+    protected abstract val captureDirectoryPath: String
+    protected abstract val driver: String
+
+    fun run(sessionId: Long, fileName: String, testBody: suspend (Lifetime, RdcCaptureFile, RdcCapture) -> Unit) {
         val lifetime = Lifetime.Eternal.createTerminatedAfter(Duration.ofSeconds(120), EmptyCoroutineContext)
 
         runBlocking {
@@ -127,18 +138,7 @@ class RenderDocClientTest {
             val model = client.model
             val rdDispatcher = scheduler.asCoroutineDispatcher
 
-            val osName = System.getProperty("os.name").lowercase()
-
-            fun getResourceInfo() = when {
-                osName.contains("mac") -> Pair("macos", "Vulkan")
-                osName.contains("win") -> Pair("windows", "D3D11")
-                osName.contains("nix") || osName.contains("nux") -> Pair("linux", "Vulkan")
-                else -> fail("Tests can't be executed in current operating system")
-            }
-
-            val (os, driver) = getResourceInfo()
-
-            val rdcSample = javaClass.classLoader.getResource("samples/${os}/test.rdc")?.toURI()?.toPath()?.pathString ?: fail("Failed to load sample resource")
+            val rdcSample = javaClass.classLoader.getResource("${captureDirectoryPath}/${fileName}")?.toURI()?.toPath()?.pathString ?: fail("Failed to load sample resource")
 
             modelLifetime.usingNested { captureLifetime ->
                 val captureFile = withContext(rdDispatcher) {
@@ -153,10 +153,7 @@ class RenderDocClientTest {
                 val capture = withContext(rdDispatcher) {
                     captureFile.openCapture.startSuspending(captureLifetime, Unit)
                 }
-                when(os) {
-                    "macos" -> RenderDocClientMacosTest.testRenderDocClient(modelLifetime, capture)
-                    "windows" -> RenderDocClientWindowsTest.testRenderDocClient(modelLifetime, capture)
-                }
+                testBody(modelLifetime, captureFile, capture)
             }
         }
     }
