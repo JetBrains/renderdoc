@@ -7,4 +7,9 @@ struct Test1 final : AbstractTest {
   void test(const rd::Lifetime &lifetime, const rd::Wrapper<jetbrains::renderdoc::RenderDocFile> &file, const rd::Wrapper<jetbrains::renderdoc::RenderDocReplay> &replay) override;
 };
 
+struct Test2 final : AbstractTest {
+  explicit Test2() : AbstractTest(L"samples/windows/glass.rdc") {}
+  void test(const rd::Lifetime &lifetime, const rd::Wrapper<jetbrains::renderdoc::RenderDocFile> &file, const rd::Wrapper<jetbrains::renderdoc::RenderDocReplay> &replay) override;
+};
+
 #endif //RENDERDOC_WINDOWS_TESTS_H
