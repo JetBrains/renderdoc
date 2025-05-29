@@ -1,15 +1,18 @@
 if(APPLE)
-    set(TEST_SOURCE renderdoc_service_tests_macos.cpp)
+    add_subdirectory(macos)
+    list(TRANSFORM test_sources PREPEND "macos/")
 elseif(UNIX)
-    set(TEST_SOURCE renderdoc_service_tests_linux.cpp)
+    add_subdirectory(linux)
+    list(TRANSFORM test_sources PREPEND "linux/")
 elseif(WIN32)
-    set(TEST_SOURCE renderdoc_service_tests_windows.cpp)
+    add_subdirectory(windows)
+    list(TRANSFORM test_sources PREPEND "windows/")
 else()
     message(FATAL_ERROR "Unsupported operating system for RenderDocServiceTests.")
 endif()
 
 add_executable(RenderDocServiceTests
-        ${TEST_SOURCE}
+        ${test_sources}
         renderdoc_service_test_utils.cpp
         renderdoc_service_test_utils.h
 )
