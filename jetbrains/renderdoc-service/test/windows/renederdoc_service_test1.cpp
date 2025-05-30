@@ -425,11 +425,12 @@ void assert_try_debug_vertex_with_step_out(const rd::Lifetime &lifetime, const r
     vertex_debug_session->step_into();
     const auto name = vertex_debug_session->get_sourceFiles().at(0)->get_name();
     assert(name.find(L"unnamed_shader") != std::wstring::npos);
-    vertex_debug_session->step_out();
+    for (int i = 0; i < 6; ++i)
+      vertex_debug_session->step_out();
   }
   vertex_debug_session->step_out();
 
-  assert(frame_tracker.frames.size() == 21);
+  assert(frame_tracker.frames.size() == 26);
 
   assert(frame_tracker.frames ==
          std::vector({
@@ -455,6 +456,11 @@ void assert_try_debug_vertex_with_step_out(const rd::Lifetime &lifetime, const r
 
            {model::RdcDebugStack(765, -1, -1, 0, 0, 0, 0)},
            {model::RdcDebugStack(765, 0, 0, 895, 895, 19, 58)},
+           {model::RdcDebugStack(765, 7, 0, 897, 897, 20, 48)},
+           {model::RdcDebugStack(765, 8, 0, 897, 897, 52, 73)},
+           {model::RdcDebugStack(765, 9, 0, 897, 897, 20, 73)},
+           {model::RdcDebugStack(765, 10, 0, 897, 897, 14, 75)},
+           {model::RdcDebugStack(765, 11, 0, 897, 897, 14, 92)},
            {model::RdcDebugStack(765, -1, -1, 0, 0, 0, 0)},
            rd::Wrapper<model::RdcDebugStack>(nullptr)}));
   assert(frame_tracker.draw_call_id_changes == std::vector({
@@ -462,7 +468,7 @@ void assert_try_debug_vertex_with_step_out(const rd::Lifetime &lifetime, const r
     std::make_pair<std::size_t, int64_t>(4, 732),
     std::make_pair<std::size_t, int64_t>(9, 749),
     std::make_pair<std::size_t, int64_t>(17, 765),
-    std::make_pair<std::size_t, int64_t>(20, -1)
+    std::make_pair<std::size_t, int64_t>(25, -1)
   }));
 }
 

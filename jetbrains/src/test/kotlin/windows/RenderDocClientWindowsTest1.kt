@@ -500,7 +500,9 @@ class RenderDocClientWindowsTest1 : RenderDocAbstractClientTest() {
 
                 //event 765
                 debugSession.stepInto.fire()
-                debugSession.stepOut.fire()
+                repeat(6) {
+                    debugSession.stepOut.fire()
+                }
 
                 debugSession.stepOut.fire()
             }
@@ -531,6 +533,11 @@ class RenderDocClientWindowsTest1 : RenderDocAbstractClientTest() {
 
                     RdcDebugStack(765u, -1, -1, 0u, 0u, 0u, 0u),
                     RdcDebugStack(765u, 0, 0, 895u, 895u, 19u, 58u),
+                    RdcDebugStack(765u, 7, 0, 897u, 897u, 20u, 48u),
+                    RdcDebugStack(765u, 8, 0, 897u, 897u, 52u, 73u),
+                    RdcDebugStack(765u, 9, 0, 897u, 897u, 20u, 73u),
+                    RdcDebugStack(765u, 10, 0, 897u, 897u, 14u, 75u),
+                    RdcDebugStack(765u, 11, 0, 897u, 897u, 14u, 92u),
                     RdcDebugStack(765u, -1, -1, 0u, 0u, 0u, 0u),
                 ), frameTracker.frames
             )

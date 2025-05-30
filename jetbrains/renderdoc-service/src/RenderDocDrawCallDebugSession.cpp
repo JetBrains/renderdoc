@@ -195,6 +195,9 @@ rd::Wrapper<model::RdcDebugStack> RenderDocDrawCallDebugSession::step_out() cons
     if (!data->do_step())
       return rd::Wrapper<model::RdcDebugStack>(nullptr);
 
+    if (data->breakpoints.find(RenderDocBreakpoint(data->current_instruction.lineInfo)) != data->breakpoints.end())
+      break;
+
     if (!data->debug_info->sourceDebugInformation)
       break;
 
