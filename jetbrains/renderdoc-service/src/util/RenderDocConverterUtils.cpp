@@ -16,7 +16,7 @@ std::vector<rd::Wrapper<std::wstring>> RenderDocConverterUtils::wrapStringsSet(c
 rd::Wrapper<model::RdcShaderVariable> RenderDocConverterUtils::convertShaderVariable(const ShaderVariable &var) {
   model::RdcShaderValue value(ArrayUtils::CopyToVector(var.value.f32v),
     ArrayUtils::CopyToVector(var.value.s32v), ArrayUtils::CopyToVector(var.value.u32v),
-    ArrayUtils::CopyToVector(var.value.f64v), ArrayUtils::CopyToVector<rdhalf, uint16_t>(var.value.f16v),
+    ArrayUtils::CopyToVector(var.value.f64v), ArrayUtils::CopyToVector<rdhalf, float>(var.value.f16v),
     ArrayUtils::CopyToVector(var.value.u64v), ArrayUtils::CopyToVector(var.value.s64v),
     ArrayUtils::CopyToVector(var.value.u16v), ArrayUtils::CopyToVector(var.value.s16v),
     ArrayUtils::CopyToVector(var.value.u8v), ArrayUtils::CopyToVector<signed char, uint8_t>(var.value.s8v));

@@ -122,7 +122,7 @@ object RenderDocModel : Ext(RenderDocRoot) {
             field("s32v", array(int32))
             field("u32v", array(uint32))
             field("f64v", array(double))
-            field("f16v", array(uint16))
+            field("f16v", array(float))
             field("u64v", array(uint64))
             field("s64v", array(int64))
             field("u16v", array(uint16))
