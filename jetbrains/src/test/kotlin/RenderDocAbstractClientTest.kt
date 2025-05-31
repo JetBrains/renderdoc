@@ -3,6 +3,7 @@ import com.jetbrains.rd.framework.protocolOrThrow
 import com.jetbrains.rd.util.lifetime.Lifetime
 import com.jetbrains.rd.util.lifetime.LifetimeDefinition
 import com.jetbrains.rd.util.lifetime.waitTermination
+import com.jetbrains.rd.util.reactive.fire
 import com.jetbrains.rd.util.threading.coroutines.adviseSuspend
 import com.jetbrains.rd.util.threading.coroutines.asCoroutineDispatcher
 import com.jetbrains.rd.util.threading.coroutines.createTerminatedAfter
@@ -14,6 +15,8 @@ import com.jetbrains.renderdoc.rdClient.model.RdcDebugPixelInput
 import com.jetbrains.renderdoc.rdClient.model.RdcDebugSession
 import com.jetbrains.renderdoc.rdClient.model.RdcDebugStack
 import com.jetbrains.renderdoc.rdClient.model.RdcDebugVertexInput
+import com.jetbrains.renderdoc.rdClient.model.RdcLineBreakpoint
+import com.jetbrains.renderdoc.rdClient.model.RdcSourceBreakpoint
 import com.jetbrains.renderdoc.rdClient.model.RdcSourceFilesInAction
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.runBlocking
@@ -117,6 +120,18 @@ abstract class RenderDocAbstractClientTest {
             assertEquals(emptyList<RdcDebugStack>(), frameTracker.frames)
             assertEquals(hashMapOf<Int, UInt>(), frameTracker.drawCallChanges)
             assertEquals(emptyList<List<String>?>(), frameTracker.sourceNamesPerDrawCall)
+        }
+
+        fun RdcDebugSession.runToCursor(breakpoint: RdcLineBreakpoint) {
+            addLineBreakpoint.fire(breakpoint)
+            resume.fire()
+            removeLineBreakpoint.fire(breakpoint)
+        }
+
+        fun RdcDebugSession.runToCursor(breakpoint: RdcSourceBreakpoint) {
+            addSourceBreakpoint.fire(breakpoint)
+            resume.fire()
+            removeSourceBreakpoint.fire(breakpoint)
         }
     }
 

@@ -201,7 +201,6 @@ class RenderDocClientWindowsTest1 : RenderDocAbstractClientTest() {
             assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
         }
 
-
         private suspend fun assertDebugVertexStepOutDisassembly(modelLifetime: Lifetime, capture: RdcCapture) {
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
             run {
@@ -308,6 +307,75 @@ class RenderDocClientWindowsTest1 : RenderDocAbstractClientTest() {
                 val expectedSourcesFull = listOf(listOf("unnamed_shader"))
                 assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
             }
+        }
+
+        private suspend fun assertDebugVertexRunToCursorDisassembly(modelLifetime: Lifetime, capture: RdcCapture) {
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            run {
+                val sessionLifetime = modelLifetime.createNested()
+                val debugSession = withContext(rdDispatcher) {
+                    capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(784u, 14u, emptyList()))
+                }
+
+                val drawCall = debugSession.sessionState.value?.drawCallSession
+                Assertions.assertNotNull(drawCall)
+                Assertions.assertTrue(drawCall!!.sourceFiles.isEmpty())
+
+                val lineNumbers = mutableListOf<UInt>()
+                withContext(rdDispatcher) {
+                    debugSession.sessionState.adviseSuspend(sessionLifetime, rdDispatcher) { state ->
+                        if (state != null) {
+                            lineNumbers.add(state.currentStack.lineStart)
+                        } else {
+                            sessionLifetime.terminate()
+                        }
+                    }
+                    debugSession.runToCursor(RdcLineBreakpoint(-1, 26u))
+                    debugSession.runToCursor(RdcLineBreakpoint(-1, 178u))
+                    debugSession.runToCursor(RdcLineBreakpoint(-1, 84u))
+                }
+
+                sessionLifetime.waitTermination()
+
+                Assertions.assertEquals(listOf(15u, 26u, 178u), lineNumbers)
+            }
+        }
+
+        private suspend fun assertDebugVertexRunToCursorShaderLab(modelLifetime: Lifetime, capture: RdcCapture) {
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val sessionLifetime = modelLifetime.createNested()
+            val debugSession = withContext(rdDispatcher) {
+                capture.debugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(732u, 1u, emptyList()))
+            }
+
+            val drawCall = debugSession.sessionState.value?.drawCallSession
+            Assertions.assertNotNull(drawCall)
+            Assertions.assertEquals("unnamed_shader", drawCall!!.sourceFiles[0].name)
+
+            val frameTracker = RenderDocAbstractClientTest.Companion.FrameSessionTracker()
+                .also { it.init(sessionLifetime, rdDispatcher, debugSession) }
+            withContext(rdDispatcher) {
+                debugSession.runToCursor(RdcSourceBreakpoint("C:/Program Files/Unity/Hub/Editor/2022.3.45f1/Editor/Data/CGIncludes/UnityShaderUtilities.cginc", 50u))
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/NewShader.shader", 43u))
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/NewShader.shader", 44u))
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/NewShader.shader", 45u))
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/NewShader.shader", 46u))
+            }
+
+            sessionLifetime.waitTermination()
+
+            Assertions.assertEquals(
+                listOf(
+                    RdcDebugStack(732u, 0, 0, 918u, 918u, 11u, 45u),
+                    RdcDebugStack(732u, 4, 0, 221u, 221u, 31u, 80u),
+                    RdcDebugStack(732u, 19, 0, 918u, 918u, 1u, 45u),
+                    RdcDebugStack(732u, 20, 0, 919u, 919u, 13u, 35u),
+                    RdcDebugStack(732u, 21, 0, 920u, 920u, 1u, 10u),
+                ), frameTracker.frames
+            )
+            Assertions.assertEquals(hashMapOf(0 to 732u), frameTracker.drawCallChanges)
+            val expectedSourcesFull = listOf(listOf("unnamed_shader"))
+            assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
         }
 
         private suspend fun assertDebugVertexWithBreakpoints(modelLifetime: Lifetime, capture: RdcCapture) {
@@ -674,6 +742,47 @@ class RenderDocClientWindowsTest1 : RenderDocAbstractClientTest() {
             assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, eventsToSkip)
         }
 
+        private suspend fun assertTryDebugVertexRunToCursor(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
+            val sessionLifetime = modelLifetime.createNested()
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val debugSession = withContext(rdDispatcher) {
+                capture.tryDebugVertex.startSuspending(sessionLifetime, RdcDebugVertexInput(0u, 3u, breakpoints))
+            }
+
+            val frameTracker = RenderDocAbstractClientTest.Companion.FrameSessionTracker()
+                .also { it.init(sessionLifetime, rdDispatcher, debugSession) }
+            withContext(rdDispatcher) {
+                // event 715
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/NewShader.shader", 45u))
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/NewShader.shader", 45u))
+                // event 732
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/Cube Shader.shader", 57u))
+
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/Cube Shader.shader", 62u))
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/Waves.shader", 45u))
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/Waves.shader", 43u))
+            }
+
+            sessionLifetime.waitTermination()
+            Assertions.assertEquals(
+                listOf(
+                    RdcDebugStack(715u, 0, 0, 883u, 883u, 11u, 45u),
+                    RdcDebugStack(715u, 19, 0, 883u, 883u, 1u, 45u),
+                    RdcDebugStack(732u, 21, 0, 920u, 920u, 1u, 10u),
+                    RdcDebugStack(749u, 20, 0, 930u, 934u, 5u, 19u),
+                    RdcDebugStack(749u, 21, 0, 934u, 934u, 3u, 19u),
+                    RdcDebugStack(765u, 0, 0, 895u, 895u, 19u, 58u),
+                ), frameTracker.frames
+            )
+            Assertions.assertEquals(
+                hashMapOf(0 to 715u, 2 to 732u, 3 to 749u, 5 to 765u),
+                frameTracker.drawCallChanges
+            )
+
+            val expectedSourcesFull = listOf(listOf("unnamed_shader"), listOf("unnamed_shader"), listOf("unnamed_shader"), listOf("unnamed_shader"))
+            assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
+        }
+
         private suspend fun assertTryDebugUncommonVertexStepByStep(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
@@ -1027,6 +1136,70 @@ class RenderDocClientWindowsTest1 : RenderDocAbstractClientTest() {
             )
         }
 
+        private suspend fun assertDebugPixelRunToCursorDisassembly(modelLifetime: Lifetime, capture: RdcCapture) {
+            val sessionLifetime = modelLifetime.createNested()
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val debugSession = withContext(rdDispatcher) {
+                capture.debugPixel.startSuspending(sessionLifetime, RdcDebugPixelInput(1043u, 1133u, 664u, emptyList()))
+            }
+            val drawCallSession = debugSession.sessionState.value?.drawCallSession
+            Assertions.assertNotNull(drawCallSession)
+            Assertions.assertTrue(drawCallSession!!.sourceFiles.isEmpty())
+
+            val frameTracker = RenderDocAbstractClientTest.Companion.FrameSessionTracker()
+                .also { it.init(sessionLifetime, rdDispatcher, debugSession) }
+            withContext(rdDispatcher) {
+                debugSession.runToCursor(RdcLineBreakpoint(-1, 11u))
+                debugSession.runToCursor(RdcLineBreakpoint(-1, 12u))
+                debugSession.runToCursor(RdcLineBreakpoint(-1, 11u))
+            }
+
+            sessionLifetime.waitTermination()
+
+            Assertions.assertEquals(
+                listOf(
+                    RdcDebugStack(1043u, 0, -1, 10u, 10u, 0u, 0u),
+                    RdcDebugStack(1043u, 1, -1, 11u, 11u, 0u, 0u),
+                    RdcDebugStack(1043u, 2, -1, 12u, 12u, 0u, 0u),
+                ), frameTracker.frames
+            )
+            Assertions.assertEquals(hashMapOf(0 to 1043u), frameTracker.drawCallChanges)
+
+            val expectedSourcesFull = listOf<List<String>?>(emptyList())
+            assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
+        }
+
+        private suspend fun assertDebugPixelRunToCursorShaderLab(modelLifetime: Lifetime, capture: RdcCapture) {
+            val sessionLifetime = modelLifetime.createNested()
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val debugSession = withContext(rdDispatcher) {
+                capture.debugPixel.startSuspending(sessionLifetime, RdcDebugPixelInput(732u, 1133u, 664u, emptyList()))
+            }
+            val drawCallSession = debugSession.sessionState.value?.drawCallSession
+            Assertions.assertNotNull(drawCallSession)
+            Assertions.assertEquals("unnamed_shader", drawCallSession!!.sourceFiles[0].name)
+
+            val frameTracker = RenderDocAbstractClientTest.Companion.FrameSessionTracker()
+                .also { it.init(sessionLifetime, rdDispatcher, debugSession) }
+            withContext(rdDispatcher) {
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/NewShader.shader", 59u))
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/NewShader.shader", 44u))
+            }
+
+            sessionLifetime.waitTermination()
+
+            Assertions.assertEquals(
+                listOf(
+                    RdcDebugStack(732u, 0, 0, 932u, 932u, 1u, 9u),
+                    RdcDebugStack(732u, 2, 0, 934u, 934u, 28u, 40u),
+                ), frameTracker.frames
+            )
+            Assertions.assertEquals(hashMapOf(0 to 732u), frameTracker.drawCallChanges)
+
+            val expectedSourcesFull = listOf(listOf("unnamed_shader"))
+            assertSourceNamesPerDrawCall(frameTracker, expectedSourcesFull, emptyList())
+        }
+
         private suspend fun assertTryDebugPixelWithBreakpoints(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
             val sessionLifetime = modelLifetime.createNested()
             val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
@@ -1168,6 +1341,65 @@ class RenderDocClientWindowsTest1 : RenderDocAbstractClientTest() {
                 frameTracker,
                 expectedSourcesFull,
                 listOf(732u, 824u, 837u)
+            )
+        }
+
+        private suspend fun assertTryDebugPixelRunToCursor(modelLifetime: Lifetime, capture: RdcCapture, breakpoints: List<RdcSourceBreakpoint>) {
+            val sessionLifetime = modelLifetime.createNested()
+            val rdDispatcher = capture.protocolOrThrow.scheduler.asCoroutineDispatcher
+            val debugSession = withContext(rdDispatcher) {
+                capture.tryDebugPixel.startSuspending(sessionLifetime, RdcDebugPixelInput(0u, 914u, 534u, breakpoints))
+            }
+
+            val frameTracker = RenderDocAbstractClientTest.Companion.FrameSessionTracker()
+                .also { it.init(sessionLifetime, rdDispatcher, debugSession) }
+            withContext(rdDispatcher) {
+                // event 715
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/Cube Shader.shader", 69u))
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/NewShader.shader", 43u))
+
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/Cube Shader.shader", 72u))
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+                debugSession.stepOver.fire()
+
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/Cube Shader.shader", 70u))
+
+                debugSession.stepOver.fire()
+
+                debugSession.runToCursor(RdcSourceBreakpoint("Assets/Cube Shader.shader", 70u))
+            }
+
+            sessionLifetime.waitTermination()
+
+            Assertions.assertEquals(
+                listOf(
+                    RdcDebugStack(715u, 0, 0, 890u, 890u, 8u, 30u),
+                    RdcDebugStack(715u, 1, 0, 890u, 890u, 1u, 32u),
+
+                    RdcDebugStack(749u, 1, 0, 944u, 944u, 8u, 23u),
+                    RdcDebugStack(749u, 4, 0, 900u, 900u, 8u, 12u),
+                    RdcDebugStack(749u, 6, 0, 944u, 944u, 27u, 50u),
+                    RdcDebugStack(749u, 7, 0, 944u, 944u, 8u, 50u),
+                    RdcDebugStack(749u, 8, 0, 944u, 944u, 1u, 52u),
+
+                    RdcDebugStack(765u, 0, 0, 908u, 908u, 1u, 15u),
+                    RdcDebugStack(765u, -1, -1, 0u, 0u, 0u, 0u),
+                ), frameTracker.frames
+            )
+            Assertions.assertEquals(
+                hashMapOf(
+                    0 to 715u,
+                    2 to 749u,
+                    7 to 765u
+                ), frameTracker.drawCallChanges
+            )
+
+            val expectedSourcesFull = listOf(listOf("unnamed_shader"), listOf("unnamed_shader"), listOf("unnamed_shader"))
+            assertSourceNamesPerDrawCall(
+                frameTracker,
+                expectedSourcesFull,
+                listOf(732u)
             )
         }
 
@@ -1587,6 +1819,8 @@ class RenderDocClientWindowsTest1 : RenderDocAbstractClientTest() {
             assertDebugVertexStepByStepShaderLab(lifetime, capture)
             assertDebugVertexStepOutDisassembly(lifetime, capture)
             assertDebugVertexStepOutShaderLab(lifetime, capture)
+            assertDebugVertexRunToCursorDisassembly(lifetime, capture)
+            assertDebugVertexRunToCursorShaderLab(lifetime, capture)
             assertDebugVertexWithBreakpoints(lifetime, capture)
 
             assertTryDebugVertexStepOver(lifetime, capture, 35u, listOf(
@@ -1596,6 +1830,12 @@ class RenderDocClientWindowsTest1 : RenderDocAbstractClientTest() {
                 )
             ), listOf(811u))
             assertTryDebugVertexStepOver(lifetime, capture, 100u, breakpoints, listOf(732u, 749u, 811u))
+            assertTryDebugVertexRunToCursor(lifetime, capture, listOf(
+                RdcSourceBreakpoint(
+                    "Assets/ShaderForSphere.shader",
+                    20u
+                )
+            ))
             breakpoints += listOf(
                 RdcSourceBreakpoint("Assets/Waves.shader", 47u),
                 RdcSourceBreakpoint("Assets/Waves.shader", 58u)
@@ -1610,10 +1850,13 @@ class RenderDocClientWindowsTest1 : RenderDocAbstractClientTest() {
             assertDebugPixelStepByStepDisassembly(lifetime, capture)
             assertDebugPixelStepByStepShaderLab(lifetime, capture)
             assertTryDebugPixelStepByStep(lifetime, capture, breakpoints)
+            assertDebugPixelRunToCursorDisassembly(lifetime, capture)
+            assertDebugPixelRunToCursorShaderLab(lifetime, capture)
 
             breakpoints.add(RdcSourceBreakpoint("Assets/ShaderForSphere.shader", 27u))
             assertTryDebugPixelWithBreakpoints(lifetime, capture, breakpoints)
             assertTryDebugPixelStepOver(lifetime, capture, breakpoints)
+            assertTryDebugPixelRunToCursor(lifetime, capture, breakpoints)
 
             assertVerticesTable(lifetime, capture)
             assertTexturesOutputs(lifetime, capture)
