@@ -7,14 +7,8 @@
 
 namespace jetbrains::renderdoc {
 
-RenderDocLineBreakpointsMapper::RenderDocLineBreakpointsMapper() {}
-
-void RenderDocLineBreakpointsMapper::register_sources_usages_in_draw_call(uint32_t event_id, const std::vector<rd::Wrapper<model::RdcSourceFile>> &files) {
-  if (const auto it = sources_usages_in_draw_calls.find(event_id); it != sources_usages_in_draw_calls.end()) {
-    return;
-  }
-
-  auto &usages_cache = sources_usages_in_draw_calls[event_id];
+RenderDocLineBreakpointsMapper::RenderDocLineBreakpointsMapper(const std::vector<rd::Wrapper<model::RdcSourceFile>> &files) {
+  auto &usages_cache = sources_usages;
   usages_cache.resize(files.size());
   for (uint32_t i = 0; i < files.size(); ++i) {
     try_register_sources_usages_in_file(usages_cache[i], files[i]);
@@ -51,11 +45,10 @@ bool RenderDocLineBreakpointsMapper::try_register_sources_usages_in_file(usages_
   return true;
 }
 
-std::vector<std::pair<uint32_t, uint32_t>> RenderDocLineBreakpointsMapper::map_source_line(uint32_t event_id, const std::wstring &file_path, uint32_t source_line) const {
+std::vector<std::pair<uint32_t, uint32_t>> RenderDocLineBreakpointsMapper::map_source_line(const std::wstring &file_path, uint32_t source_line) const {
   std::vector<std::pair<uint32_t, uint32_t>> res;
-  auto &usages_cache = sources_usages_in_draw_calls.at(event_id);
-  for (uint32_t i = 0; i < usages_cache.size(); ++i) {
-    const auto &usages_map = usages_cache.at(i);
+  for (uint32_t i = 0; i < sources_usages.size(); ++i) {
+    const auto &usages_map = sources_usages.at(i);
 
     if (const auto &it = usages_map.find(file_path); it != usages_map.end()) {
       const auto &usages = it->second;

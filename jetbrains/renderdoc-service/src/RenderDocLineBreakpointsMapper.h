@@ -26,16 +26,14 @@ class RenderDocLineBreakpointsMapper {
   };
 
   using usages_by_path = std::unordered_map<std::wstring, std::set<SourceFileUsageEntry, SourceFileUsageEntry::comparator>>;
-  using usages_per_source_file = std::vector<usages_by_path>;
 
-  std::unordered_map<uint32_t, usages_per_source_file> sources_usages_in_draw_calls;
+  std::vector<usages_by_path> sources_usages;
   static bool try_register_sources_usages_in_file(usages_by_path &usages, const rd::Wrapper<model::RdcSourceFile> &file);
 
 public:
-  explicit RenderDocLineBreakpointsMapper();
-  void register_sources_usages_in_draw_call(uint32_t event_id, const std::vector<rd::Wrapper<model::RdcSourceFile>> &files);
+  explicit RenderDocLineBreakpointsMapper(const std::vector<rd::Wrapper<model::RdcSourceFile>> &files);
   [[nodiscard]]
-  std::vector<std::pair<uint32_t, uint32_t>> map_source_line(uint32_t event_id, const std::wstring &file_path, uint32_t source_line) const;
+  std::vector<std::pair<uint32_t, uint32_t>> map_source_line(const std::wstring &file_path, uint32_t source_line) const;
 };
 }
 

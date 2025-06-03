@@ -175,7 +175,7 @@ RenderDocDrawCallDebugSession::RenderDocDrawCallDebugSession(const ActionDescrip
     :  RdcDrawCallDebugSession(RenderDocConverterUtils::convertDebugTrace(trace), get_disassembly(controller, reflection, trace->stage, action->eventId, debug_info->sourceDebugInformation), get_source_files(debug_info), get_resource(controller),
       RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadOnlyResources(trace->stage)), RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetReadWriteResources(trace->stage)),
       RenderDocConverterUtils::convertResources(controller->GetPipelineState().GetSamplers(trace->stage)), RenderDocConverterUtils::convertShaderReflection(reflection)),
-      data(std::make_shared<RenderDocDrawCallDebugSessionData>(action, trace, controller, debug_info)) {
+      mapper(std::make_shared<RenderDocLineBreakpointsMapper>(sourceFiles_)), data(std::make_shared<RenderDocDrawCallDebugSessionData>(action, trace, controller, debug_info)) {
 }
 
 bool RenderDocDrawCallDebugSession::can_perform_step() const {
@@ -305,7 +305,7 @@ std::vector<model::RdcLineBreakpoint> RenderDocDrawCallDebugSession::map_breakpo
         res.push_back(bp);
       }
     } else {
-      for (const auto &[idx, line] : mapper->map_source_line(data->action->eventId, breakpoint.get_sourceFilePath(), breakpoint.get_line())) {
+      for (const auto &[idx, line] : mapper->map_source_line(breakpoint.get_sourceFilePath(), breakpoint.get_line())) {
         data->breakpoints_mapping[breakpoint].emplace_back(idx, line);
         res.emplace_back(idx, line);
       }
