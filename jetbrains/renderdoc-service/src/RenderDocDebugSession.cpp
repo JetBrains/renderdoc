@@ -83,8 +83,8 @@ void RenderDocDebugSession::add_breakpoint(int32_t source_file_index, uint32_t l
 
 void RenderDocDebugSession::add_source_breakpoint(const rd::Wrapper<model::RdcSourceBreakpoint> &breakpoint) const {
   data->source_breakpoints.insert(*breakpoint);
-  if (data->draw_call_session) {
-    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), { *breakpoint })) {
+  if (const auto &draw_call = data->draw_call_session) {
+    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(draw_call->mapper.get(), { *breakpoint })) {
       add_breakpoint(bp.get_sourceFileIndex(), bp.get_line());
     }
   }
@@ -97,8 +97,8 @@ void RenderDocDebugSession::remove_breakpoint(int32_t source_file_index, uint32_
 
 void RenderDocDebugSession::remove_source_breakpoint(const rd::Wrapper<model::RdcSourceBreakpoint> &breakpoint) const {
   data->source_breakpoints.erase(*breakpoint);
-  if (data->draw_call_session) {
-    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), { *breakpoint })) {
+  if (const auto &draw_call = data->draw_call_session) {
+    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(draw_call->mapper.get(), { *breakpoint })) {
       remove_breakpoint(bp.get_sourceFileIndex(), bp.get_line());
     }
   }
@@ -113,8 +113,8 @@ bool RenderDocDebugSession::step_to_next_draw_call() const {
   }
 
   data->draw_call_session = data->stage == ShaderStage::Vertex ? data->replay->start_debug_vertex(data->current_action, input) : data->replay->start_debug_pixel(data->current_action, input);
-  if (data->draw_call_session) {
-    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), data->source_breakpoints)) {
+  if (const auto &draw_call = data->draw_call_session) {
+    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(draw_call->mapper.get(), data->source_breakpoints)) {
       add_breakpoint(bp.get_sourceFileIndex(), bp.get_line());
     }
   }
@@ -202,8 +202,8 @@ void RenderDocDebugSession::add_breakpoints_from_sources(const std::vector<rd::W
   for (const auto& breakpoint : breakpoints) {
     data->source_breakpoints.insert(*breakpoint);
   }
-  if (data->draw_call_session) {
-    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(data->replay->mapper.get(), data->source_breakpoints)) {
+  if (const auto &draw_call = data->draw_call_session) {
+    for (const auto &bp : data->draw_call_session->map_breakpoints_from_sources(draw_call->mapper.get(), data->source_breakpoints)) {
       add_breakpoint(bp.get_sourceFileIndex(), bp.get_line());
     }
   }

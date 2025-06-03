@@ -37,6 +37,8 @@ class RenderDocDrawCallDebugSession : public model::RdcDrawCallDebugSession  {
   static std::vector<rd::Wrapper<model::RdcResourceInfo>> get_resource(const std::shared_ptr<IReplayController> &controller);
 
 public:
+  std::shared_ptr<RenderDocLineBreakpointsMapper> mapper;
+
   static std::vector<rd::Wrapper<model::RdcSourceFile>> get_source_files(const ShaderDebugInfo *debug_info);
 
   RenderDocDrawCallDebugSession(const ActionDescription *action, const std::shared_ptr<IReplayController> &controller, ShaderDebugTrace *trace, const ShaderDebugInfo *debug_info, const ShaderReflection *reflection);
