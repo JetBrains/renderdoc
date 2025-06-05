@@ -502,10 +502,7 @@ rd::Wrapper<model::RdcVertexStageInOutputs> RenderDocMeshPreviewService::get_ver
   if (last_stage_info.first != action->eventId) {
     calculate_vertices(action);
   }
-  const auto &stage_info = last_stage_info.second;
-  if (stage_info.has_value())
-    return stage_info;
-  return rd::Wrapper<model::RdcVertexStageInOutputs>(nullptr);
+  return last_stage_info.second;
 }
 
 } // namespace jetbrains::renderdoc
