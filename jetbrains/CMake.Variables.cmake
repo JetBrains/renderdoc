@@ -1,1 +1,1 @@
-set(RD_VERSION "2025.1.1")
+set(RD_VERSION "2025.2.0")
