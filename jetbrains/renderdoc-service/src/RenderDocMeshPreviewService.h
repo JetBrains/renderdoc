@@ -51,7 +51,7 @@ class RenderDocMeshPreviewService {
 
   IReplayController *controller;
   std::shared_ptr<RenderDocCaptureContext> capture_context;
-  std::unordered_map<uint32_t, rd::Wrapper<model::RdcVertexStageInOutputs>> stage_info_cache;
+  std::pair<uint32_t, rd::Wrapper<model::RdcVertexStageInOutputs>> last_stage_info;
 
   static uint32_t calculate_index(const BufferData &data, uint32_t vertex_id, int32_t base_vertex, uint32_t prim_restart);
 
