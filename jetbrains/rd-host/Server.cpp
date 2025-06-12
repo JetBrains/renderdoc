@@ -12,7 +12,7 @@ namespace jetbrains::renderdoc::rdhost
 
 Server::Server() : service(std::make_unique<RenderDocService>())
 {
-  wire = std::make_shared<rd::SocketWire::Server>(socket_lifetime, &scheduler, 0, "TestServer");
+  wire = std::make_shared<rd::SocketWire::Server>(socket_lifetime, &scheduler, 0, "RenderDocServer");
   protocol = std::make_unique<rd::Protocol>(rd::Identities::SERVER, &scheduler, wire, socket_lifetime);
 }
 
